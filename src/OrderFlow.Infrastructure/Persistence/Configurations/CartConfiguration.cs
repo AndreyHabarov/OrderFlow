@@ -27,6 +27,9 @@ internal sealed class CartItemConfiguration : IEntityTypeConfiguration<CartItem>
         builder.Property<int>("Id").ValueGeneratedOnAdd();
         builder.HasKey("Id");
         builder.Property(i => i.ProductId).IsRequired();
+
+        // A product appears once per cart; concurrent adds that would create a second row are rejected and retried.
+        builder.HasIndex("CartId", nameof(CartItem.ProductId)).IsUnique();
         builder.Property(i => i.Quantity).IsRequired();
         builder.Ignore(i => i.LineTotal);
         builder.ComplexProperty(i => i.UnitPrice, price =>

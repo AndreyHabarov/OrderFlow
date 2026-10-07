@@ -23,6 +23,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public bool IsConcurrencyConflict(Exception exception) => exception is DbUpdateConcurrencyException;
+
+    public void DiscardChanges() => ChangeTracker.Clear();
+
     public bool IsUniqueViolation(Exception exception) =>
         exception is DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } };
 

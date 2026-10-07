@@ -83,6 +83,12 @@ internal sealed class FakeUnitOfWork : IUnitOfWork
     }
 
     public bool IsUniqueViolation(Exception exception) => exception is UniqueViolationSimulated;
+
+    public bool IsConcurrencyConflict(Exception exception) => false;
+
+    public void DiscardChanges()
+    {
+    }
 }
 
 internal sealed class FakeCurrentUser(Guid customerId) : ICurrentUser

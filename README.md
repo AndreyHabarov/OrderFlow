@@ -84,11 +84,20 @@ dotnet user-secrets set "Jwt:SigningKey" "<random string of 32+ characters>" --p
 dotnet run --project src/OrderFlow.Api
 ```
 
+Web client (needs the API running; see [web/README.md](web/README.md)):
+
+```bash
+cd web
+npm install
+npm run dev      # http://localhost:5173
+```
+
 Build and test:
 
 ```bash
 dotnet build OrderFlow.sln
-dotnet test OrderFlow.sln
+dotnet test OrderFlow.sln    # unit tests plus Testcontainers integration tests (Docker must be running)
+cd web && npm test           # frontend tests
 ```
 
 ## Repository layout

@@ -8,6 +8,7 @@
         <PackageReference Include="coverlet.collector"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk"/>
         <PackageReference Include="xunit"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection"/>
         <PackageReference Include="xunit.runner.visualstudio"/>
     </ItemGroup>
 

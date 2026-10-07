@@ -14,7 +14,7 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 - [x] S0-07 Health endpoints `/health/live` and `/health/ready` (PostgreSQL, Redis, RabbitMQ checks) (ready returns 503 until dependencies are up; checked without Docker)
 - [x] S0-08 Serilog to Seq, `dotnet user-secrets` setup (verified: logs with CorrelationId arrive in Seq)
 - [x] S0-09 GitHub Actions: build + test on PR; Dependabot (first run result to be verified on GitHub)
-- [ ] S0-10 Enable `main` ruleset (owner), switch to branch + PR workflow
+- [x] S0-10 Enable `main` ruleset (owner), switch to branch + PR workflow (repo made public; ruleset active: PR + build-test required)
 - [x] S0-11 `README.md` with Mermaid diagram, quick start, demo script outline; `docs/architecture.md`
 - [x] S0-12 ADR 0001 (Clean Architecture + CQRS), ADR 0002 (compose + healthchecks); `docs/interview-notes.md` template
 - [x] S0-13 Claude Code: skills `adr`, `add-consumer`; subagents `code-reviewer`, `interviewer`; hooks; GitHub MCP (GitHub MCP skipped: gh CLI covers it; add-consumer is a draft until stage 2)
@@ -24,7 +24,7 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 
 - [x] S1-01 Domain model: Product, Cart, Order
 - [x] S1-02 EF Core + PostgreSQL, first migration (migration applied to real PostgreSQL via migrate-on-startup)
-- [ ] S1-03 Catalog queries + Redis cache-aside
+- [x] S1-03 Catalog queries + Redis cache-aside (ProductsController, versioned cache namespaces, demo seed, ADR 0003)
 - [ ] S1-04 Cart and checkout commands (MediatR, validation) and their controllers
 - [ ] S1-05 `Idempotency-Key` on `POST /orders`
 - [ ] S1-06 JWT auth, roles (Customer/Admin), refresh tokens

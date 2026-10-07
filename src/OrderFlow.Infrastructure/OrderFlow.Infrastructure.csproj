@@ -9,6 +9,12 @@
         <PackageReference Include="AspNetCore.HealthChecks.Redis"/>
         <PackageReference Include="AspNetCore.HealthChecks.Rabbitmq"/>
         <PackageReference Include="RabbitMQ.Client"/>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
+        <PackageReference Include="EFCore.NamingConventions"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
     </ItemGroup>
 
     <ItemGroup>

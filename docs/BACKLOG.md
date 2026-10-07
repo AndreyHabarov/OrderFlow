@@ -22,7 +22,7 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 
 ## Stage 1. Monolith without a broker
 
-- [ ] S1-01 Domain model: Product, Cart, Order
+- [x] S1-01 Domain model: Product, Cart, Order
 - [ ] S1-02 EF Core + PostgreSQL, first migration
 - [ ] S1-03 Catalog queries + Redis cache-aside
 - [ ] S1-04 Cart and checkout commands (MediatR, validation)

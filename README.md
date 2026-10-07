@@ -59,15 +59,15 @@ docker compose up -d        # PostgreSQL, RabbitMQ, Redis, Seq, API
 
 | Service | URL |
 |---|---|
-| API health | http://localhost:8080/health/live, http://localhost:8080/health/ready |
-| RabbitMQ UI | http://localhost:15672 |
-| Seq (logs) | http://localhost:5341 |
+| API health | http://localhost:8085/health/live, http://localhost:8085/health/ready |
+| RabbitMQ UI | http://localhost:15682 |
+| Seq (logs) | http://localhost:5351 |
 
 Run the API from the IDE or CLI against the containers:
 
 ```bash
 docker compose up -d postgres rabbitmq redis seq
-dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=<db>;Username=<user>;Password=<password>" --project src/OrderFlow.Api
+dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5442;Database=<db>;Username=<user>;Password=<password>" --project src/OrderFlow.Api
 dotnet user-secrets set "RabbitMq:User" "<user>" --project src/OrderFlow.Api
 dotnet user-secrets set "RabbitMq:Password" "<password>" --project src/OrderFlow.Api
 dotnet run --project src/OrderFlow.Api

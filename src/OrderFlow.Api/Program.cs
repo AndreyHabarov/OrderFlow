@@ -12,7 +12,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Service", "orderflow-api")
     .WriteTo.Console()
-    .WriteTo.Seq(context.Configuration["Seq:Url"] ?? "http://localhost:5341"));
+    .WriteTo.Seq(context.Configuration["Seq:Url"] ?? "http://localhost:5351"));
 
 builder.Services.AddOpenApi();
 builder.Services.AddInfrastructure(builder.Configuration);

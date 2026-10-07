@@ -43,3 +43,8 @@ dotnet_diagnostic.CS1591.severity = none
 # Test method names use underscores for readability
 [tests/**.cs]
 dotnet_diagnostic.CA1707.severity = none
+
+# EF Core generated migrations are not hand-formatted
+[**/Migrations/*.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

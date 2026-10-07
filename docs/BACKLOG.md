@@ -23,7 +23,7 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 ## Stage 1. Monolith without a broker
 
 - [x] S1-01 Domain model: Product, Cart, Order
-- [ ] S1-02 EF Core + PostgreSQL, first migration
+- [x] S1-02 EF Core + PostgreSQL, first migration (migration generated and SQL reviewed; not yet applied to a real database: Docker was off)
 - [ ] S1-03 Catalog queries + Redis cache-aside
 - [ ] S1-04 Cart and checkout commands (MediatR, validation)
 - [ ] S1-05 `Idempotency-Key` on `POST /orders`

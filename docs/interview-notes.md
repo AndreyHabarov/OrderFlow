@@ -54,3 +54,9 @@ Weak spots found in interview rounds are listed per stage.
 - Live checks: no token 401, tampered token 401, duplicate email 409, wrong password 401, refresh rotates the token, reusing the old refresh token 401 and then the newest one also 401 (all sessions revoked), admin login returns role Admin, full order flow works with a real JWT.
 - The container uptime ("Up 3 seconds") is now part of my checklist after every `docker compose up --build`, after the stale-container mistake in S1-05.
 - Questions: refresh rotation and reuse detection; why only the hash of the refresh token is stored; HS256 vs RS256 when services are split; what a 15-minute access token costs after logout; why identical errors for wrong password and unknown email; where a browser should keep the refresh token.
+
+### Integration tests (S1-08)
+- 8 tests on real PostgreSQL, Redis and RabbitMQ (Testcontainers, same image versions as compose), running in CI.
+- Real concurrency proven: 8 parallel checkouts with one idempotency key produce exactly one order and one stock reduction; 12 buyers competing for 5 units never oversell (`stock_after == 5 - created`, only 201/409/422 responses).
+- Why Testcontainers instead of EF InMemory or SQLite: unique indexes, `xmin` concurrency tokens and transaction behaviour are PostgreSQL features; a fake database would pass tests the real one fails.
+- Questions: what the 409 vs 422 split means for a client; why the invariant is asserted instead of exact counts in a race; why `UseSetting` instead of `ConfigureAppConfiguration` with minimal hosting; how test isolation works with one shared container set.

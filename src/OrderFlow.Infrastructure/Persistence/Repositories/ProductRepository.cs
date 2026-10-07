@@ -25,4 +25,7 @@ internal sealed class ProductRepository(AppDbContext db) : IProductRepository
 
     public Task<Product?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         db.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<Product>> GetTrackedByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) =>
+        await db.Products.Where(p => ids.Contains(p.Id)).ToListAsync(cancellationToken);
 }

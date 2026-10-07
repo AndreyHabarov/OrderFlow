@@ -1,0 +1,46 @@
+namespace OrderFlow.Application.Common;
+
+/// <summary>The authenticated customer of the current request.</summary>
+public interface ICurrentUser
+{
+    /// <summary>Throws <see cref="UnauthorizedException"/> when the request has no identity.</summary>
+    Guid CustomerId { get; }
+}
+
+/// <summary>Commits all tracked changes in one database transaction.</summary>
+public interface IUnitOfWork
+{
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>The requested resource does not exist (or is not visible to the caller). Mapped to 404.</summary>
+public sealed class NotFoundException : Exception
+{
+    public NotFoundException(string message) : base(message)
+    {
+    }
+
+    public NotFoundException(string message, Exception innerException) : base(message, innerException)
+    {
+    }
+
+    public NotFoundException()
+    {
+    }
+}
+
+/// <summary>The request has no valid identity. Mapped to 401.</summary>
+public sealed class UnauthorizedException : Exception
+{
+    public UnauthorizedException(string message) : base(message)
+    {
+    }
+
+    public UnauthorizedException(string message, Exception innerException) : base(message, innerException)
+    {
+    }
+
+    public UnauthorizedException()
+    {
+    }
+}

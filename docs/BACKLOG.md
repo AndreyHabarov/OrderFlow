@@ -25,10 +25,10 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 - [x] S1-01 Domain model: Product, Cart, Order
 - [x] S1-02 EF Core + PostgreSQL, first migration (migration applied to real PostgreSQL via migrate-on-startup)
 - [x] S1-03 Catalog queries + Redis cache-aside (ProductsController, versioned cache namespaces, demo seed, ADR 0003)
-- [ ] S1-04 Cart and checkout commands (MediatR, validation) and their controllers
+- [x] S1-04 Cart and checkout commands (MediatR, validation) and their controllers (cart, checkout, order queries, temporary X-Customer-Id identity; concurrency test pending in S1-08)
 - [ ] S1-05 `Idempotency-Key` on `POST /orders`
 - [ ] S1-06 JWT auth, roles (Customer/Admin), refresh tokens
-- [ ] S1-07 ProblemDetails, global error handling, CORS
+- [ ] S1-07 ProblemDetails, global error handling, CORS (ProblemDetails and global handler done in S1-04; CORS remaining)
 - [ ] S1-08 Integration tests on Testcontainers; run in CI
 - [ ] S1-09 React app: shop, cart, checkout (screen 1)
 - [ ] S1-10 Stage wrap-up

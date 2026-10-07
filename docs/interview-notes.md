@@ -39,3 +39,8 @@ Weak spots found in interview rounds are listed per stage.
 ### Problems and metrics
 - Catalog list endpoint via `127.0.0.1`: about 5 ms with a warm cache (measured locally, 3 requests). Cold-path number to be recorded with k6 in stage 5b.
 - Runtime crash `FileNotFoundException: Microsoft.EntityFrameworkCore 10.0.12`: the code compiled against 10.0.12 (Design package) while Npgsql pulled 10.0.4 at runtime. Fixed by pinning EF Core packages explicitly. Lesson: transitive version drift between compile time and runtime.
+
+### Cart and checkout (S1-04)
+- Checkout is one database transaction: reserve stock, create order, empty cart. `Product` has a `xmin` row-version token, so two concurrent checkouts of the last item cannot both succeed (the loser gets 409). Truly concurrent behaviour is to be proven by an integration test in S1-08.
+- Temporary identity: `X-Customer-Id` header (`HeaderCurrentUser`), replaced by JWT in S1-06. Never expose it outside local development.
+- Questions: optimistic vs pessimistic locking and which one fits here; why the order stores a snapshot of name and price; why validation lives in a MediatR pipeline behavior; why `DomainException` maps to 422 and a concurrency conflict to 409.

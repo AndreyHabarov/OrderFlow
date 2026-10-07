@@ -16,7 +16,7 @@ public sealed class InventoryServiceTests(ServicesFixture fixture)
     private static readonly string ReservedKey = MessageCatalog.RoutingKeyOf<StockReserved>();
     private static readonly string FailedKey = MessageCatalog.RoutingKeyOf<StockReservationFailed>();
 
-    private async Task<IHost> StartInventoryAsync(Action<IServiceCollection>? extra = null)
+    private async Task<TestHost> StartInventoryAsync(Action<IServiceCollection>? extra = null)
     {
         // A previous test may have left unprocessed messages in the shared service queue.
         await fixture.PurgeQueueAsync(Topology.Inventory);
@@ -31,7 +31,7 @@ public sealed class InventoryServiceTests(ServicesFixture fixture)
         return host;
     }
 
-    private static async Task SeedStockAsync(IHost host, Guid productId, int available)
+    private static async Task SeedStockAsync(TestHost host, Guid productId, int available)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
@@ -39,7 +39,7 @@ public sealed class InventoryServiceTests(ServicesFixture fixture)
         await db.SaveChangesAsync();
     }
 
-    private static async Task<int> StockOfAsync(IHost host, Guid productId)
+    private static async Task<int> StockOfAsync(TestHost host, Guid productId)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<InventoryDbContext>();
@@ -60,7 +60,7 @@ public sealed class InventoryServiceTests(ServicesFixture fixture)
     [Fact]
     public async Task Reserves_stock_and_answers_with_StockReserved_keeping_the_correlation()
     {
-        using var inventory = await StartInventoryAsync();
+        await using var inventory = await StartInventoryAsync();
         var product = Guid.NewGuid();
         await SeedStockAsync(inventory, product, 5);
         var outcomes = await OutcomeQueueAsync();
@@ -80,7 +80,7 @@ public sealed class InventoryServiceTests(ServicesFixture fixture)
     [Fact]
     public async Task Rejects_an_order_when_stock_is_insufficient_and_leaves_stock_untouched()
     {
-        using var inventory = await StartInventoryAsync();
+        await using var inventory = await StartInventoryAsync();
         var product = Guid.NewGuid();
         await SeedStockAsync(inventory, product, 1);
         var outcomes = await OutcomeQueueAsync();
@@ -98,7 +98,7 @@ public sealed class InventoryServiceTests(ServicesFixture fixture)
     [Fact]
     public async Task Rejects_an_order_for_an_unknown_product()
     {
-        using var inventory = await StartInventoryAsync();
+        await using var inventory = await StartInventoryAsync();
         var outcomes = await OutcomeQueueAsync();
         var order = Order(Guid.NewGuid(), 1);
 
@@ -113,7 +113,7 @@ public sealed class InventoryServiceTests(ServicesFixture fixture)
     [Fact]
     public async Task A_duplicate_OrderCreated_reserves_once_and_repeats_the_same_answer()
     {
-        using var inventory = await StartInventoryAsync();
+        await using var inventory = await StartInventoryAsync();
         var product = Guid.NewGuid();
         await SeedStockAsync(inventory, product, 5);
         var outcomes = await OutcomeQueueAsync();
@@ -135,9 +135,9 @@ public sealed class InventoryServiceTests(ServicesFixture fixture)
     public async Task A_lost_answer_is_recovered_by_redelivery_without_reserving_twice()
     {
         // The reservation commits, then publishing the answer fails once (the "crash after commit" window).
-        using var directPublisher = fixture.BuildHost();
+        await using var directPublisher = fixture.BuildHost();
         var failures = 1;
-        using var inventory = await StartInventoryAsync(services => services.AddSingleton<IMessagePublisher>(
+        await using var inventory = await StartInventoryAsync(services => services.AddSingleton<IMessagePublisher>(
             new FailingOncePublisher(directPublisher.Services.GetRequiredService<IMessagePublisher>(), () => failures-- > 0)));
         var product = Guid.NewGuid();
         await SeedStockAsync(inventory, product, 5);
@@ -157,8 +157,8 @@ public sealed class InventoryServiceTests(ServicesFixture fixture)
     {
         const int stock = 10;
         const int orders = 30;
-        using var first = await StartInventoryAsync();
-        using var second = await StartInventoryAsync(); // same queue: competing consumers (purge ran before the first start only)
+        await using var first = await StartInventoryAsync();
+        await using var second = await StartInventoryAsync(); // same queue: competing consumers (purge ran before the first start only)
         var product = Guid.NewGuid();
         await SeedStockAsync(first, product, stock);
         var outcomes = await OutcomeQueueAsync();

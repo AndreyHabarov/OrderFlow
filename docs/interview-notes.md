@@ -94,3 +94,15 @@ Weak spots found in interview rounds are listed per stage.
 - Why does a failed reservation also get a row? (So a redelivered message cannot flip a refusal into a success after stock changes.)
 - Why does Inventory keep customer id and total in its own table? (It must be able to rebuild its answer without calling Orders.)
 - Why one schema per service in a shared database, and what would change with one database per service?
+
+### Payments service (S2-04), questions to be able to answer
+- How is the emulator mode switched without a restart, and why a Redis key? (Read on every payment; the admin UI will write the same key. A Redis outage falls back to the configured default, because the mode is a demo convenience and must not stop payments.)
+- Same handler shape as Inventory: commit the payment, then publish. Why can a customer not be charged twice? (Payment row keyed by order id; a redelivery repeats the stored answer.)
+- What does the "timeout" mode model, and what does it NOT model? (It reports a failure after a delay. A bank that never answers needs a timeout in the caller, which stage 3 adds with the saga.)
+- Why is the failed payment also stored?
+
+### Lesson: sync disposal of an async resource (found while writing the Payments tests)
+- Symptom: three tests took 25-45 seconds although every assertion ran in milliseconds. Timing laps showed the time was spent in `host.Dispose()`, after the test body.
+- Cause: `IHost` only exposes the synchronous `Dispose`. The DI container then disposes async-only singletons (the RabbitMQ connection) by blocking a thread on `DisposeAsync`, which stalls until internal timeouts (~45 s). Disposing the publisher manually first made it vanish, which pinned it down.
+- Fix: a small `TestHost` wrapper that disposes asynchronously (`await using`). Production workers are fine because `RunAsync` disposes the host asynchronously.
+- Takeaway: sync-over-async disposal is a classic way to get mysterious shutdown delays (and deadlocks with a synchronization context). Measure with laps instead of guessing.

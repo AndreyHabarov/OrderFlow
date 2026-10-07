@@ -16,7 +16,7 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 - [x] S0-09 GitHub Actions: build + test on PR; Dependabot (first run result to be verified on GitHub)
 - [ ] S0-10 Enable `main` ruleset (owner), switch to branch + PR workflow
 - [x] S0-11 `README.md` with Mermaid diagram, quick start, demo script outline; `docs/architecture.md`
-- [ ] S0-12 ADR 0001 (Clean Architecture + CQRS), ADR 0002 (compose + healthchecks); `docs/interview-notes.md` template
+- [x] S0-12 ADR 0001 (Clean Architecture + CQRS), ADR 0002 (compose + healthchecks); `docs/interview-notes.md` template
 - [ ] S0-13 Claude Code: skills `adr`, `add-consumer`; subagents `code-reviewer`, `interviewer`; hooks; GitHub MCP
 - [ ] S0-14 Stage wrap-up: walkthrough, break-it-yourself, interview round
 

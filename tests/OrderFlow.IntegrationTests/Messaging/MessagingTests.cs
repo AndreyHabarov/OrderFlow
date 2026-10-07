@@ -239,6 +239,21 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
     }
 
     [Fact]
+    public async Task Stopping_the_same_consumer_concurrently_is_safe()
+    {
+        // Found in CI: a shutdown that overlapped another one made the second StopAsync dispose a channel the first
+        // had already released (NullReferenceException). Stopping must be idempotent and thread-safe.
+        var queue = RabbitMqFixture.NewQueue(StockReservedKey);
+        await using var host = ConsumerHost(rabbit, queue, new Sink());
+        await host.StartAsync();
+        var consumer = host.Services.GetServices<IHostedService>().Single(service => service.GetType().Name == "RabbitMqConsumer");
+
+        var stops = Enumerable.Range(0, 8).Select(_ => consumer.StopAsync(CancellationToken.None)).ToArray();
+
+        await Task.WhenAll(stops);
+    }
+
+    [Fact]
     public async Task A_consumer_refuses_to_start_when_a_bound_key_has_no_handler()
     {
         var queue = RabbitMqFixture.NewQueue(StockReservedKey, MessageCatalog.RoutingKeyOf<PaymentFailed>());

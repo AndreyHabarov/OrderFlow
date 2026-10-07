@@ -64,7 +64,11 @@ internal sealed partial class RabbitMqConsumer(
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        if (_channel is null)
+        // Take ownership of the channel atomically. The host may ask us to stop more than once, or concurrently with
+        // another shutdown; only the first caller does the work, the others return (found in CI as a
+        // NullReferenceException on a channel the first stop had already released).
+        var channel = Interlocked.Exchange(ref _channel, null);
+        if (channel is null)
         {
             return;
         }
@@ -73,7 +77,7 @@ internal sealed partial class RabbitMqConsumer(
         {
             if (_consumerTag is not null)
             {
-                await _channel.BasicCancelAsync(_consumerTag, cancellationToken: cancellationToken);
+                await channel.BasicCancelAsync(_consumerTag, cancellationToken: cancellationToken);
             }
 
             Task drained;
@@ -90,7 +94,7 @@ internal sealed partial class RabbitMqConsumer(
                 await Task.WhenAny(drained, Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None));
             }
 
-            await _channel.CloseAsync(cancellationToken);
+            await channel.CloseAsync(cancellationToken);
         }
         catch (AlreadyClosedException)
         {
@@ -98,8 +102,7 @@ internal sealed partial class RabbitMqConsumer(
         }
         finally
         {
-            await _channel.DisposeAsync();
-            _channel = null;
+            await channel.DisposeAsync();
         }
 
         LogStopped(queue.Name);
@@ -112,7 +115,7 @@ internal sealed partial class RabbitMqConsumer(
         BeginWork();
         try
         {
-            await ProcessAsync(delivery);
+            await ProcessAsync(((AsyncEventingBasicConsumer)sender).Channel, delivery);
         }
         finally
         {
@@ -120,9 +123,8 @@ internal sealed partial class RabbitMqConsumer(
         }
     }
 
-    private async Task ProcessAsync(BasicDeliverEventArgs delivery)
+    private async Task ProcessAsync(IChannel channel, BasicDeliverEventArgs delivery)
     {
-        var channel = _channel!;
         var routingKey = delivery.RoutingKey;
 
         if (!registrations.TryGetValue(routingKey, out var registration))

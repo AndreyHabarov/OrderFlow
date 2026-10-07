@@ -57,21 +57,14 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         return (client, auth);
     }
 
-    public async Task<Guid> CreateProductAsync(int stock, decimal price = 10m)
+    public async Task<Guid> CreateProductAsync(decimal price = 10m)
     {
         await using var scope = Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var product = Product.Create($"Test product {Guid.NewGuid():N}", "integration test", new Money(price), stock);
+        var product = Product.Create($"Test product {Guid.NewGuid():N}", "integration test", new Money(price));
         db.Products.Add(product);
         await db.SaveChangesAsync();
         return product.Id;
-    }
-
-    public async Task<int> GetStockAsync(Guid productId)
-    {
-        await using var scope = Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        return await db.Products.AsNoTracking().Where(p => p.Id == productId).Select(p => p.StockQuantity).SingleAsync();
     }
 }
 

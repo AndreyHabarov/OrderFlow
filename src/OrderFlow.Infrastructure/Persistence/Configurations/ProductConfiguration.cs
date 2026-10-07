@@ -18,9 +18,6 @@ internal sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
             price.Property(m => m.Amount).HasColumnName("price_amount").HasPrecision(18, 2);
             price.Property(m => m.Currency).HasColumnName("price_currency").HasMaxLength(3);
         });
-        builder.Property(p => p.StockQuantity).IsRequired();
 
-        // Optimistic concurrency token: PostgreSQL system column xmin.
-        builder.Property<uint>("xmin").IsRowVersion();
     }
 }

@@ -71,27 +71,20 @@ public sealed class ApiIntegrationTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Checkout_creates_an_order_reduces_stock_and_refreshes_the_cached_catalog()
+    public async Task Checkout_accepts_the_order_as_pending_and_empties_the_cart()
     {
-        var productId = await factory.CreateProductAsync(stock: 10, price: 25m);
+        // Pending is the answer of this service alone; with Inventory and Payments running the order moves on
+        // (covered end to end in PlatformEndToEndTests).
+        var productId = await factory.CreateProductAsync(price: 25m);
         var (client, _) = await factory.CreateCustomerAsync();
-
-        var before = await client.GetFromJsonAsync<ProductDto>($"/api/products/{productId}");
-        Assert.Equal(10, before!.StockQuantity);
-
         await AddToCartAsync(client, productId, 3);
+
         var response = await CheckoutAsync(client, Guid.NewGuid().ToString());
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var order = (await response.Content.ReadFromJsonAsync<OrderDto>())!;
-        Assert.Equal("StockReserved", order.Status);
+        Assert.Equal("Pending", order.Status);
         Assert.Equal(75m, order.Total);
-
-        Assert.Equal(7, await factory.GetStockAsync(productId));
-
-        // The cache was invalidated by the checkout, so the API shows the new stock.
-        var after = await client.GetFromJsonAsync<ProductDto>($"/api/products/{productId}");
-        Assert.Equal(7, after!.StockQuantity);
 
         var cart = await client.GetFromJsonAsync<CartDto>("/api/cart");
         Assert.Empty(cart!.Items);
@@ -101,8 +94,8 @@ public sealed class ApiIntegrationTests(ApiFactory factory)
     public async Task Concurrent_cart_updates_by_a_new_customer_neither_fail_nor_lose_items()
     {
         // Found in the browser: two quick clicks by a customer without a cart raced to create it and one request got a 500.
-        var first = await factory.CreateProductAsync(stock: 50);
-        var second = await factory.CreateProductAsync(stock: 50);
+        var first = await factory.CreateProductAsync();
+        var second = await factory.CreateProductAsync();
         var (client, _) = await factory.CreateCustomerAsync();
 
         var adds = Enumerable.Range(0, 4).SelectMany(_ => new[] { first, second })
@@ -118,7 +111,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory)
     [Fact]
     public async Task Customers_cannot_read_each_others_orders()
     {
-        var productId = await factory.CreateProductAsync(stock: 5);
+        var productId = await factory.CreateProductAsync();
         var (owner, _) = await factory.CreateCustomerAsync();
         await AddToCartAsync(owner, productId, 1);
         var order = (await (await CheckoutAsync(owner, Guid.NewGuid().ToString())).Content.ReadFromJsonAsync<OrderDto>())!;
@@ -136,7 +129,7 @@ public sealed class ApiIntegrationTests(ApiFactory factory)
         // so the burst is repeated with fresh customers; a single run can pass by luck (it did, locally, before CI caught it).
         for (var round = 0; round < 10; round++)
         {
-            var productId = await factory.CreateProductAsync(stock: 10);
+            var productId = await factory.CreateProductAsync();
             var (client, _) = await factory.CreateCustomerAsync();
             await AddToCartAsync(client, productId, 3);
             var key = Guid.NewGuid().ToString();
@@ -152,35 +145,8 @@ public sealed class ApiIntegrationTests(ApiFactory factory)
             }
 
             Assert.Single(orderIds);
-            Assert.Equal(7, await factory.GetStockAsync(productId));
             var orders = await client.GetFromJsonAsync<List<OrderDto>>("/api/orders");
             Assert.Single(orders!);
         }
-    }
-
-    [Fact]
-    public async Task Concurrent_buyers_of_scarce_stock_never_oversell()
-    {
-        const int stock = 5;
-        const int buyers = 12;
-        var productId = await factory.CreateProductAsync(stock);
-
-        var customers = new List<HttpClient>();
-        for (var i = 0; i < buyers; i++)
-        {
-            var (client, _) = await factory.CreateCustomerAsync();
-            await AddToCartAsync(client, productId, 1);
-            customers.Add(client);
-        }
-
-        var responses = await Task.WhenAll(customers.Select(c => CheckoutAsync(c, Guid.NewGuid().ToString())));
-
-        var created = responses.Count(r => r.StatusCode == HttpStatusCode.Created);
-        var rejected = responses.Count(r => r.StatusCode is HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict);
-
-        // 422 = not enough stock, 409 = lost an optimistic concurrency race (safe to retry). Anything else is a bug.
-        Assert.Equal(buyers, created + rejected);
-        Assert.InRange(created, 1, stock);
-        Assert.Equal(stock - created, await factory.GetStockAsync(productId));
     }
 }

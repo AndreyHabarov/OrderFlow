@@ -48,10 +48,10 @@ public class CartAndCheckoutTests
     }
 
     [Fact]
-    public async Task Checkout_creates_order_reserves_stock_empties_cart_and_invalidates_cache()
+    public async Task Checkout_creates_a_pending_order_empties_the_cart_and_announces_the_order()
     {
-        var keyboard = TestApp.Product("Keyboard", price: 50m, stock: 5);
-        var mouse = TestApp.Product("Mouse", price: 20m, stock: 3);
+        var keyboard = TestApp.Product("Keyboard", price: 50m);
+        var mouse = TestApp.Product("Mouse", price: 20m);
         var app = new TestApp(null, keyboard, mouse);
         await app.Sender.Send(new AddCartItemCommand(keyboard.Id, 2));
         await app.Sender.Send(new AddCartItemCommand(mouse.Id, 1));
@@ -59,29 +59,28 @@ public class CartAndCheckoutTests
         var result = await Checkout(app);
 
         Assert.False(result.Replayed);
-        Assert.Equal(nameof(OrderStatus.StockReserved), result.Order.Status);
+        Assert.Equal(nameof(OrderStatus.Pending), result.Order.Status); // Inventory and Payments decide the rest
         Assert.Equal(120m, result.Order.Total);
         Assert.Equal(2, result.Order.Items.Count);
-        Assert.Equal(3, keyboard.StockQuantity);
-        Assert.Equal(2, mouse.StockQuantity);
         Assert.Empty(app.Carts.Store.Single().Items);
         Assert.Single(app.Orders.Store);
-        Assert.Equal(1, app.Cache.Invalidations);
+        Assert.Equal([result.Order.Id], app.Events.Created);
     }
 
     [Fact]
-    public async Task Checkout_with_insufficient_stock_fails_and_creates_nothing()
+    public async Task Checkout_still_succeeds_when_the_broker_is_down_and_the_order_stays_pending()
     {
-        var product = TestApp.Product("Keyboard", stock: 1);
+        // Known gap of stage 2 (ADR 0006): the commit happened, the announcement did not. Stage 3's outbox fixes it.
+        var product = TestApp.Product("Keyboard");
         var app = new TestApp(null, product);
-        await app.Sender.Send(new AddCartItemCommand(product.Id, 2));
-        var savesBefore = app.UnitOfWork.Saves;
+        await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
+        app.Events.FailPublishing = true;
 
-        await Assert.ThrowsAsync<DomainException>(() => Checkout(app));
+        var result = await Checkout(app);
 
-        Assert.Empty(app.Orders.Store);
-        Assert.Equal(savesBefore, app.UnitOfWork.Saves);
-        Assert.Equal(0, app.Cache.Invalidations);
+        Assert.Equal(nameof(OrderStatus.Pending), result.Order.Status);
+        Assert.Single(app.Orders.Store);
+        Assert.Empty(app.Events.Created);
     }
 
     [Fact]
@@ -90,6 +89,22 @@ public class CartAndCheckoutTests
         var app = new TestApp();
 
         await Assert.ThrowsAsync<DomainException>(() => Checkout(app));
+    }
+
+    [Fact]
+    public async Task Checkout_rejects_a_cart_with_a_product_that_left_the_catalog()
+    {
+        var product = TestApp.Product("Keyboard");
+        var app = new TestApp(null, product);
+        await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
+        var cart = app.Carts.Store.Single();
+        cart.AddItem(Guid.NewGuid(), 1, new Money(5m)); // a product the catalog does not know
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => Checkout(app));
+
+        Assert.Contains("no longer available", error.Message, StringComparison.Ordinal);
+        Assert.Empty(app.Orders.Store);
+        Assert.Empty(app.Events.Created);
     }
 
     [Fact]
@@ -133,9 +148,9 @@ public class CartAndCheckoutTests
     }
 
     [Fact]
-    public async Task Retrying_with_the_same_key_returns_the_same_order_and_reserves_stock_once()
+    public async Task Retrying_with_the_same_key_returns_the_same_order_and_announces_it_once()
     {
-        var product = TestApp.Product("Keyboard", stock: 5);
+        var product = TestApp.Product("Keyboard");
         var app = new TestApp(null, product);
         await app.Sender.Send(new AddCartItemCommand(product.Id, 2));
 
@@ -146,13 +161,13 @@ public class CartAndCheckoutTests
         Assert.True(second.Replayed);
         Assert.Equal(first.Order.Id, second.Order.Id);
         Assert.Single(app.Orders.Store);
-        Assert.Equal(3, product.StockQuantity);
+        Assert.Single(app.Events.Created);
     }
 
     [Fact]
     public async Task A_different_key_after_the_cart_was_emptied_is_a_new_attempt_and_fails()
     {
-        var product = TestApp.Product("Keyboard", stock: 5);
+        var product = TestApp.Product("Keyboard");
         var app = new TestApp(null, product);
         await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
         await Checkout(app, "key-a");
@@ -163,7 +178,7 @@ public class CartAndCheckoutTests
     [Fact]
     public async Task Concurrent_duplicate_is_resolved_by_returning_the_winning_order()
     {
-        var product = TestApp.Product("Keyboard", stock: 5);
+        var product = TestApp.Product("Keyboard");
         var app = new TestApp(null, product);
         await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
 
@@ -184,14 +199,14 @@ public class CartAndCheckoutTests
 
         Assert.True(result.Replayed);
         Assert.Equal(winner.Id, result.Order.Id);
-        Assert.Equal(0, app.Cache.Invalidations);
+        Assert.Empty(app.Events.Created); // the winner announces its own order
     }
 
     [Fact]
     public async Task Duplicate_that_finds_the_cart_already_emptied_by_the_winner_gets_the_winning_order()
     {
         // Race window found by CI: the fast-path lookup ran before the winner committed, the cart read ran after.
-        var product = TestApp.Product("Keyboard", stock: 5);
+        var product = TestApp.Product("Keyboard");
         var app = new TestApp(null, product);
         await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
         var first = await Checkout(app, "race-key"); // the winner: order exists, cart is empty
@@ -205,11 +220,9 @@ public class CartAndCheckoutTests
     }
 
     [Fact]
-    public async Task Duplicate_that_loses_on_the_product_version_gets_the_winning_order()
+    public async Task Duplicate_that_loses_on_a_version_conflict_gets_the_winning_order()
     {
-        // The other race window: the winner updated the product rows first, so our UPDATE fails the version check
-        // before the unique index on the key is even reached.
-        var product = TestApp.Product("Keyboard", stock: 5);
+        var product = TestApp.Product("Keyboard");
         var app = new TestApp(null, product);
         await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
         var winner = Order.Create(app.CustomerId, [new OrderItem(product.Id, "Keyboard", 1, new Money(10m))], DateTimeOffset.UtcNow, "race-key");
@@ -227,10 +240,9 @@ public class CartAndCheckoutTests
     }
 
     [Fact]
-    public async Task Version_conflict_with_another_customers_order_is_not_hidden()
+    public async Task A_version_conflict_that_is_not_a_duplicate_is_not_hidden()
     {
-        // Same product row, but the winner is somebody else's order (different key): the caller must learn about it.
-        var product = TestApp.Product("Keyboard", stock: 5);
+        var product = TestApp.Product("Keyboard");
         var app = new TestApp(null, product);
         await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
         app.UnitOfWork.OnNextSave = () =>
@@ -240,6 +252,6 @@ public class CartAndCheckoutTests
         };
 
         await Assert.ThrowsAsync<ConcurrencySimulated>(() => Checkout(app, "my-own-key"));
-        Assert.Equal(0, app.Cache.Invalidations);
+        Assert.Empty(app.Events.Created);
     }
 }

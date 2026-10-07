@@ -17,6 +17,9 @@ internal sealed class OrderRepository(AppDbContext db) : IOrderRepository
 {
     public void Add(Order order) => db.Orders.Add(order);
 
+    public Task<Order?> GetByIdAsync(Guid orderId, CancellationToken cancellationToken) =>
+        db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken);
+
     public Task<Order?> GetByIdempotencyKeyAsync(Guid customerId, string idempotencyKey, CancellationToken cancellationToken) =>
         db.Orders.AsNoTracking().Include(o => o.Items)
             .FirstOrDefaultAsync(o => o.CustomerId == customerId && o.IdempotencyKey == idempotencyKey, cancellationToken);

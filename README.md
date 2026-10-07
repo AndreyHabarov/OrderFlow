@@ -3,7 +3,7 @@
 An order-processing platform built to practice and demonstrate production-grade backend engineering on .NET 10:
 reliable messaging with RabbitMQ, a saga with compensations, the transactional outbox/inbox pattern, and operating everything in Docker.
 
-> Status: stage 0 (foundation). See [docs/BACKLOG.md](docs/BACKLOG.md) for progress and [docs/PLAN.md](docs/PLAN.md) for the full plan.
+> Status: stage 2 in progress (services and RabbitMQ; end-to-end tests pending). See [docs/BACKLOG.md](docs/BACKLOG.md) for progress and [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
 ## Architecture (target)
 
@@ -24,7 +24,7 @@ flowchart LR
     Pay -.-> Seq
 ```
 
-Order saga (happy path and compensation):
+Order flow as it works now (compensation arrives in stage 3):
 
 ```mermaid
 sequenceDiagram
@@ -53,7 +53,7 @@ More detail: [docs/architecture.md](docs/architecture.md). Decisions: [docs/adr/
 Requirements: .NET 10 SDK, Docker Desktop, Node.js (for the frontend, later stages).
 
 ```bash
-docker compose up -d        # PostgreSQL, RabbitMQ, Redis, Seq, API (reads .env)
+docker compose up -d        # PostgreSQL, RabbitMQ, Redis, Seq, API, Inventory, Payments (reads .env)
 ```
 
 Create a `.env` file in the repository root (it is git-ignored; local development values only):
@@ -103,7 +103,7 @@ cd web && npm test           # frontend tests
 ## Repository layout
 
 ```
-src/    Api, Application, Domain, Infrastructure, Contracts (workers are added in stage 2)
+src/    Api, Application, Domain, Infrastructure (Orders); Inventory and Payments (workers); Contracts, Messaging (shared)
 tests/  UnitTests, IntegrationTests (Testcontainers)
 docs/   PLAN, BACKLOG, architecture, ADRs, interview notes
 ```

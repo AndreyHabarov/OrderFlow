@@ -10,8 +10,8 @@ public interface IProductRepository
 
     Task<Product?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
-    /// <summary>Loads products with change tracking so their stock can be modified in the current unit of work.</summary>
-    Task<IReadOnlyList<Product>> GetTrackedByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+    /// <summary>Read-only lookup of several products (to snapshot name and price into an order).</summary>
+    Task<IReadOnlyList<Product>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
 }
 
 public interface ICartRepository
@@ -28,6 +28,9 @@ public interface IOrderRepository
 
     /// <summary>The customer's order created with this idempotency key, if any (read-only).</summary>
     Task<Order?> GetByIdempotencyKeyAsync(Guid customerId, string idempotencyKey, CancellationToken cancellationToken);
+
+    /// <summary>Tracked order by id regardless of owner, for the handlers of events from other services.</summary>
+    Task<Order?> GetByIdAsync(Guid orderId, CancellationToken cancellationToken);
 
     /// <summary>Returns the order only if it belongs to the customer.</summary>
     Task<Order?> GetForCustomerAsync(Guid orderId, Guid customerId, CancellationToken cancellationToken);

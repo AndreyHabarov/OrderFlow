@@ -214,6 +214,20 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
     }
 
     [Fact]
+    public async Task Declared_topology_keeps_messages_for_a_consumer_that_has_never_started()
+    {
+        // Start order must not matter: the publishing service declares the queue, so nothing is returned as unroutable.
+        var queue = RabbitMqFixture.NewQueue(StockReservedKey);
+        await using var host = rabbit.BuildHost(services => services.AddTopology([queue]));
+        await host.StartAsync();
+
+        await host.Services.GetRequiredService<IMessagePublisher>().PublishAsync(SampleMessage());
+
+        Assert.Equal(1u, await rabbit.ReadyMessagesAsync(queue.Name));
+        await host.StopAsync();
+    }
+
+    [Fact]
     public async Task A_consumer_refuses_to_start_when_a_bound_key_has_no_handler()
     {
         var queue = RabbitMqFixture.NewQueue(StockReservedKey, MessageCatalog.RoutingKeyOf<PaymentFailed>());

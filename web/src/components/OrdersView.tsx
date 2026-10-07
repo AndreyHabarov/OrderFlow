@@ -3,15 +3,23 @@ import { request } from '../api'
 import { dateTime, errorMessage, money } from '../format'
 import type { Order } from '../types'
 
+/** Statuses an order passes through while Inventory and Payments are still working on it. */
+const IN_PROGRESS = new Set(['Pending', 'StockReserved', 'Paid'])
+const POLL_INTERVAL_MS = 2000
+
 export function OrdersView({ refreshKey }: { refreshKey: number }) {
   const [orders, setOrders] = useState<Order[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pollRound, setPollRound] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     request<Order[]>('/api/orders')
       .then((result) => {
-        if (!cancelled) setOrders(result)
+        if (!cancelled) {
+          setOrders(result)
+          setError(null)
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(errorMessage(err))
@@ -19,9 +27,18 @@ export function OrdersView({ refreshKey }: { refreshKey: number }) {
     return () => {
       cancelled = true
     }
-  }, [refreshKey])
+  }, [refreshKey, pollRound])
 
-  if (error) return <p className="error" role="alert">{error}</p>
+  // Order status changes happen asynchronously in other services. Until SignalR pushes updates (stage 4), re-read
+  // the list every couple of seconds while any order is still in progress, and stop once all are final.
+  const inProgress = orders?.some((order) => IN_PROGRESS.has(order.status)) ?? false
+  useEffect(() => {
+    if (!inProgress) return
+    const timer = setTimeout(() => setPollRound((round) => round + 1), POLL_INTERVAL_MS)
+    return () => clearTimeout(timer)
+  }, [inProgress, orders])
+
+  if (error && !orders) return <p className="error" role="alert">{error}</p>
   if (!orders) return <p className="hint">Loading orders…</p>
   if (orders.length === 0) return <p className="hint">You have no orders yet.</p>
 

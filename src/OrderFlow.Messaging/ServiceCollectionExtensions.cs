@@ -47,6 +47,16 @@ public static class MessagingServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Declares the given queues and bindings at startup so messages published to them are kept even before their
+    /// consumer exists. Register it before the consumers of the same process.
+    /// </summary>
+    public static IServiceCollection AddTopology(this IServiceCollection services, IReadOnlyList<Topology.QueueDefinition> queues)
+    {
+        services.AddSingleton<IHostedService>(sp => new TopologyDeclaration(sp.GetRequiredService<RabbitMqConnection>(), queues));
+        return services;
+    }
+
+    /// <summary>
     /// Adds a hosted service that consumes <paramref name="queue"/>, declaring the queue and its bindings on start.
     /// Every routing key bound to the queue must have a handler.
     /// </summary>

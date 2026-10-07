@@ -24,6 +24,7 @@
     <ItemGroup>
         <ProjectReference Include="..\OrderFlow.Application\OrderFlow.Application.csproj"/>
         <ProjectReference Include="..\OrderFlow.Contracts\OrderFlow.Contracts.csproj"/>
+        <ProjectReference Include="..\OrderFlow.Messaging\OrderFlow.Messaging.csproj"/>
     </ItemGroup>
 
 </Project>

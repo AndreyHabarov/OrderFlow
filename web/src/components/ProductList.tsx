@@ -65,10 +65,7 @@ export function ProductList({ signedIn, onNeedSignIn, onCartChanged }: Props) {
             <h3>{product.name}</h3>
             <p className="hint">{product.description}</p>
             <p className="price">{money(product.price, product.currency)}</p>
-            <p className={product.stockQuantity > 0 ? 'hint' : 'error'}>
-              {product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : 'Out of stock'}
-            </p>
-            <button type="button" disabled={product.stockQuantity === 0 || adding === product.id} onClick={() => void addToCart(product)}>
+            <button type="button" disabled={adding === product.id} onClick={() => void addToCart(product)}>
               {adding === product.id ? 'Adding…' : 'Add to cart'}
             </button>
           </li>

@@ -1,7 +1,7 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using OrderFlow.Application.Abstractions;
-using OrderFlow.Application.Catalog;
 using OrderFlow.Application.Common;
 using OrderFlow.Domain.Common;
 using OrderFlow.Domain.Orders;
@@ -9,9 +9,9 @@ using OrderFlow.Domain.Orders;
 namespace OrderFlow.Application.Orders;
 
 /// <summary>
-/// Turns the customer's cart into an order. In stage 1 everything is synchronous: stock is reserved in the same
-/// database transaction that creates the order and empties the cart, so the order ends in <c>StockReserved</c>.
-/// Stage 2 replaces the stock step with messages.
+/// Turns the customer's cart into an order in status <c>Pending</c> and announces it (<c>OrderCreated</c>). From
+/// there the other services take over: Inventory reserves stock, Payments charges, and the events they publish move
+/// the order forward (see <see cref="OrderEventCommands"/>). The response is therefore "accepted", not "done".
 /// The command is idempotent: the same <see cref="IdempotencyKey"/> from the same customer never creates a second order.
 /// </summary>
 public sealed record CheckoutCommand(string IdempotencyKey) : IRequest<CheckoutResult>;
@@ -29,14 +29,15 @@ internal sealed class CheckoutCommandValidator : AbstractValidator<CheckoutComma
     }
 }
 
-internal sealed class CheckoutCommandHandler(
+internal sealed partial class CheckoutCommandHandler(
     ICartRepository carts,
     IProductRepository products,
     IOrderRepository orders,
     IUnitOfWork unitOfWork,
-    ICacheService cache,
+    IOrderEventPublisher events,
     ICurrentUser currentUser,
-    TimeProvider timeProvider) : IRequestHandler<CheckoutCommand, CheckoutResult>
+    TimeProvider timeProvider,
+    ILogger<CheckoutCommandHandler> logger) : IRequestHandler<CheckoutCommand, CheckoutResult>
 {
     public async Task<CheckoutResult> Handle(CheckoutCommand request, CancellationToken cancellationToken)
     {
@@ -58,23 +59,22 @@ internal sealed class CheckoutCommandHandler(
         }
 
         var ids = cart.Items.Select(i => i.ProductId).ToList();
-        var loaded = (await products.GetTrackedByIdsAsync(ids, cancellationToken)).ToDictionary(p => p.Id);
+        var catalog = (await products.GetByIdsAsync(ids, cancellationToken)).ToDictionary(p => p.Id);
 
+        // The order keeps a snapshot of name and price; availability is Inventory's business, decided later.
         var orderItems = new List<OrderItem>(cart.Items.Count);
         foreach (var item in cart.Items)
         {
-            if (!loaded.TryGetValue(item.ProductId, out var product))
+            if (!catalog.TryGetValue(item.ProductId, out var product))
             {
                 throw new DomainException($"Product {item.ProductId} is no longer available.");
             }
 
-            product.Reserve(item.Quantity);
             orderItems.Add(new OrderItem(product.Id, product.Name, item.Quantity, product.Price));
         }
 
         var now = timeProvider.GetUtcNow();
         var order = Order.Create(customerId, orderItems, now, request.IdempotencyKey);
-        order.MarkStockReserved(now);
 
         orders.Add(order);
         cart.Clear();
@@ -86,21 +86,27 @@ internal sealed class CheckoutCommandHandler(
         catch (Exception ex) when (unitOfWork.IsUniqueViolation(ex) || unitOfWork.IsConcurrencyConflict(ex))
         {
             // We lost a race. If the winner is a request with the same idempotency key (a duplicate), our whole
-            // transaction (including the stock reservation) was rolled back and we return the winner's order.
-            // The race shows up as a unique violation on the key, or as a version conflict on the product rows the
-            // winner already updated, depending on which statement collides first.
+            // transaction was rolled back and we return the winner's order. The race shows up as a unique violation
+            // on the key or as a version conflict, depending on which statement collides first.
             var winner = await FindReplayAsync(customerId, request.IdempotencyKey, cancellationToken);
             if (winner is not null)
             {
                 return winner;
             }
 
-            // No such order: a different customer took the stock first. Let the API answer 409 so the client can retry.
             throw;
         }
 
-        // Stock changed, so cached catalog pages are stale.
-        await cache.InvalidateNamespaceAsync(CatalogCache.Namespace, cancellationToken);
+        // The order is committed. Announce it; if the broker is unavailable the order stays Pending until stage 3's
+        // outbox makes publishing reliable (ADR 0006, known gap 1). The customer's request is not failed for it.
+        try
+        {
+            await events.OrderCreatedAsync(order, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogPublishFailed(ex, order.Id);
+        }
 
         return new CheckoutResult(OrderDto.From(order), Replayed: false);
     }
@@ -110,6 +116,9 @@ internal sealed class CheckoutCommandHandler(
         var existing = await orders.GetByIdempotencyKeyAsync(customerId, idempotencyKey, cancellationToken);
         return existing is null ? null : new CheckoutResult(OrderDto.From(existing), Replayed: true);
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Order {OrderId} was saved but OrderCreated could not be published; it stays Pending")]
+    private partial void LogPublishFailed(Exception exception, Guid orderId);
 }
 
 public sealed record GetOrderQuery(Guid Id) : IRequest<OrderDto>;

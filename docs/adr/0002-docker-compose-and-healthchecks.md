@@ -12,7 +12,7 @@ The system depends on PostgreSQL, RabbitMQ, Redis and Seq. Anyone (including CI 
 3. **.NET Aspire.** Good tooling, but hides orchestration details; revisit after the compose version is understood.
 
 ## Decision
-Option 2. Image versions are pinned (no `latest`). Every infrastructure service has a healthcheck; `api` waits for all of them. Ports bind to `127.0.0.1` only. Credentials come from `.env` (git-ignored) with `.env.example` as the template. The API image is built with a multi-stage Dockerfile: restore layer cached by project files, publish in the SDK image, runtime on the ASP.NET Alpine image as a non-root user.
+Option 2. Image versions are pinned (no `latest`). Every infrastructure service has a healthcheck; `api` waits for all of them. Ports bind to `127.0.0.1` only. Credentials come from `.env` (git-ignored); the variables are listed in the README. The API image is built with a multi-stage Dockerfile: restore layer cached by project files, publish in the SDK image, runtime on the ASP.NET Alpine image as a non-root user.
 
 The API distinguishes liveness (`/health/live`, process is up) from readiness (`/health/ready`, dependencies reachable) so an orchestrator can restart a dead process without restarting it just because a dependency is down.
 

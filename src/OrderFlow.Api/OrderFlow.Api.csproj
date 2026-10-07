@@ -4,4 +4,10 @@
         <PackageReference Include="Microsoft.AspNetCore.OpenApi"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\OrderFlow.Application\OrderFlow.Application.csproj"/>
+        <ProjectReference Include="..\OrderFlow.Infrastructure\OrderFlow.Infrastructure.csproj"/>
+        <ProjectReference Include="..\OrderFlow.Contracts\OrderFlow.Contracts.csproj"/>
+    </ItemGroup>
+
 </Project>

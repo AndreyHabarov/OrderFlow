@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <ProjectReference Include="..\OrderFlow.Application\OrderFlow.Application.csproj"/>
+        <ProjectReference Include="..\OrderFlow.Contracts\OrderFlow.Contracts.csproj"/>
+    </ItemGroup>
+</Project>

@@ -42,9 +42,10 @@ src/
   OrderFlow.Application/    commands, queries, handlers, validators, abstractions
   OrderFlow.Domain/         entities, value objects, domain events (no dependencies)
   OrderFlow.Infrastructure/ EF Core, Redis, RabbitMQ, outbox/inbox
-  OrderFlow.Contracts/      message contracts (events/commands), versioned
-  OrderFlow.Inventory/      worker (from stage 2)
-  OrderFlow.Payments/       worker, payment emulator (from stage 2)
+  OrderFlow.Contracts/      message contracts, topology, demo catalog (shared)
+  OrderFlow.Messaging/      RabbitMQ publisher/consumer library (shared)
+  OrderFlow.Inventory/      worker: stock and reservations (own schema)
+  OrderFlow.Payments/       worker: payment emulator (own schema)
 web/                        React app
 tests/
   OrderFlow.UnitTests/

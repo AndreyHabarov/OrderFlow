@@ -17,7 +17,6 @@ export interface Product {
   description: string
   price: number
   currency: string
-  stockQuantity: number
 }
 
 export interface Paged<T> {

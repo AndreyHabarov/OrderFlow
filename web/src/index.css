@@ -229,11 +229,16 @@ label {
   border: 1px solid var(--border);
 }
 
-.badge-stockreserved,
-.badge-paid,
 .badge-confirmed {
   color: var(--ok);
   border-color: var(--ok);
+}
+
+.badge-pending,
+.badge-stockreserved,
+.badge-paid {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .badge-cancelled {

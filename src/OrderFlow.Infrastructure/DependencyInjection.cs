@@ -5,10 +5,13 @@ using Microsoft.Extensions.Options;
 using OrderFlow.Application.Abstractions;
 using OrderFlow.Application.Auth;
 using OrderFlow.Application.Common;
+using OrderFlow.Contracts;
 using OrderFlow.Infrastructure.Auth;
 using OrderFlow.Infrastructure.Caching;
+using OrderFlow.Infrastructure.Messaging;
 using OrderFlow.Infrastructure.Persistence;
 using OrderFlow.Infrastructure.Persistence.Repositories;
+using OrderFlow.Messaging;
 using RabbitMQ.Client;
 using StackExchange.Redis;
 
@@ -54,6 +57,18 @@ public static class DependencyInjection
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
+
+        // Messaging: publish OrderCreated/OrderConfirmed, and consume what Inventory and Payments answer (ADR 0006).
+        services.AddHttpContextAccessor();
+        services.AddRabbitMq(configuration);
+        services.AddTopology(Topology.All); // the queues exist even if Inventory or Payments have not started yet
+        services.AddScoped<MessageContextAccessor>();
+        services.AddScoped<IOrderEventPublisher, OrderEventPublisher>();
+        services.AddMessageConsumer(Topology.Orders, consumers => consumers
+            .Handle<StockReserved, StockReservedConsumer>()
+            .Handle<StockReservationFailed, StockReservationFailedConsumer>()
+            .Handle<PaymentSucceeded, PaymentSucceededConsumer>()
+            .Handle<PaymentFailed, PaymentFailedConsumer>());
 
         services.AddHealthChecks()
             .AddNpgSql(postgres, name: "postgres", tags: [ReadyTag])

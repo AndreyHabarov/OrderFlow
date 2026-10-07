@@ -2,6 +2,10 @@ using OrderFlow.Domain.Common;
 
 namespace OrderFlow.Domain.Catalog;
 
+/// <summary>
+/// A catalog entry: what the shop sells and for how much. Stock is NOT part of it: the Inventory service owns
+/// quantities and reservations (ADR 0006), so the catalog can be read and cached without knowing availability.
+/// </summary>
 public sealed class Product
 {
     private Product()
@@ -18,53 +22,23 @@ public sealed class Product
 
     public Money Price { get; private set; }
 
-    /// <summary>Units available for sale. In stage 2 this moves into the Inventory service.</summary>
-    public int StockQuantity { get; private set; }
+    public static Product Create(string name, string description, Money price) =>
+        Create(Guid.NewGuid(), name, description, price);
 
-    public static Product Create(string name, string description, Money price, int stockQuantity)
+    /// <summary>With an explicit id: demo products share fixed ids with the Inventory service.</summary>
+    public static Product Create(Guid id, string name, string description, Money price)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
             throw new DomainException("Product name is required.");
         }
 
-        if (stockQuantity < 0)
-        {
-            throw new DomainException("Stock quantity cannot be negative.");
-        }
-
         return new Product
         {
-            Id = Guid.NewGuid(),
+            Id = id,
             Name = name.Trim(),
             Description = description?.Trim() ?? string.Empty,
-            Price = price,
-            StockQuantity = stockQuantity
+            Price = price
         };
-    }
-
-    public void Reserve(int quantity)
-    {
-        EnsurePositive(quantity);
-        if (quantity > StockQuantity)
-        {
-            throw new DomainException($"Not enough stock for '{Name}': requested {quantity}, available {StockQuantity}.");
-        }
-
-        StockQuantity -= quantity;
-    }
-
-    public void Release(int quantity)
-    {
-        EnsurePositive(quantity);
-        StockQuantity += quantity;
-    }
-
-    private static void EnsurePositive(int quantity)
-    {
-        if (quantity <= 0)
-        {
-            throw new DomainException("Quantity must be positive.");
-        }
     }
 }

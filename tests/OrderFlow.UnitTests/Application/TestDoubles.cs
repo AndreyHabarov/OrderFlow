@@ -27,7 +27,7 @@ internal sealed class FakeProducts(params Product[] products) : IProductReposito
         return Task.FromResult(products.FirstOrDefault(p => p.Id == id));
     }
 
-    public Task<IReadOnlyList<Product>> GetTrackedByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<Product>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
     {
         IReadOnlyList<Product> found = products.Where(p => ids.Contains(p.Id)).ToList();
         return Task.FromResult(found);
@@ -57,6 +57,9 @@ internal sealed class FakeOrders : IOrderRepository
         HideNextLookups > 0 && HideNextLookups-- > 0 ? Task.FromResult<Order?>(null) :
         Task.FromResult(Store.FirstOrDefault(o => o.CustomerId == customerId && o.IdempotencyKey == idempotencyKey));
 
+    public Task<Order?> GetByIdAsync(Guid orderId, CancellationToken cancellationToken) =>
+        Task.FromResult(Store.FirstOrDefault(o => o.Id == orderId));
+
     public Task<Order?> GetForCustomerAsync(Guid orderId, Guid customerId, CancellationToken cancellationToken) =>
         Task.FromResult(Store.FirstOrDefault(o => o.Id == orderId && o.CustomerId == customerId));
 
@@ -64,6 +67,33 @@ internal sealed class FakeOrders : IOrderRepository
     {
         IReadOnlyList<Order> list = Store.Where(o => o.CustomerId == customerId).ToList();
         return Task.FromResult(list);
+    }
+}
+
+/// <summary>Records the order events the application asked to publish; can be told to fail like a broken broker.</summary>
+internal sealed class FakeOrderEvents : IOrderEventPublisher
+{
+    public List<Guid> Created { get; } = [];
+
+    public List<Guid> Confirmed { get; } = [];
+
+    public bool FailPublishing { get; set; }
+
+    public Task OrderCreatedAsync(Order order, CancellationToken cancellationToken)
+    {
+        if (FailPublishing)
+        {
+            throw new InvalidOperationException("broker unavailable");
+        }
+
+        Created.Add(order.Id);
+        return Task.CompletedTask;
+    }
+
+    public Task OrderConfirmedAsync(Order order, CancellationToken cancellationToken)
+    {
+        Confirmed.Add(order.Id);
+        return Task.CompletedTask;
     }
 }
 
@@ -147,11 +177,13 @@ internal sealed class TestApp
 
         var services = new ServiceCollection();
         services.AddApplication();
+        services.AddSingleton(typeof(Microsoft.Extensions.Logging.ILogger<>), typeof(Microsoft.Extensions.Logging.Abstractions.NullLogger<>));
         services.AddSingleton<IProductRepository>(Products);
         services.AddSingleton<ICartRepository>(Carts);
         services.AddSingleton<IOrderRepository>(Orders);
         services.AddSingleton<IUnitOfWork>(UnitOfWork);
         services.AddSingleton<ICacheService>(Cache);
+        services.AddSingleton<IOrderEventPublisher>(Events);
         services.AddSingleton<ICurrentUser>(new FakeCurrentUser(CustomerId));
         services.AddSingleton<OrderFlow.Application.Auth.IUserRepository>(Users);
         services.AddSingleton<OrderFlow.Application.Auth.IRefreshTokenRepository>(RefreshTokens);
@@ -160,6 +192,8 @@ internal sealed class TestApp
         services.AddSingleton<TimeProvider>(Clock);
         Sender = services.BuildServiceProvider().GetRequiredService<ISender>();
     }
+
+    public FakeOrderEvents Events { get; } = new();
 
     public FakeUsers Users { get; } = new();
 
@@ -183,8 +217,8 @@ internal sealed class TestApp
 
     public ISender Sender { get; }
 
-    public static Product Product(string name, decimal price = 10m, int stock = 5) =>
-        OrderFlow.Domain.Catalog.Product.Create(name, "d", new Money(price), stock);
+    public static Product Product(string name, decimal price = 10m) =>
+        OrderFlow.Domain.Catalog.Product.Create(name, "d", new Money(price));
 }
 
 internal sealed class UniqueViolationSimulated : Exception

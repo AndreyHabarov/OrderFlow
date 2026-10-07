@@ -7,24 +7,16 @@ namespace OrderFlow.UnitTests.Domain;
 public class ProductAndCartTests
 {
     [Fact]
-    public void Reserve_decreases_stock_and_release_restores_it()
+    public void Product_requires_a_name_and_keeps_an_explicit_id()
     {
-        var product = Product.Create("Mouse", string.Empty, new Money(25m), 5);
+        Assert.Throws<DomainException>(() => Product.Create(" ", "d", new Money(1m)));
 
-        product.Reserve(3);
-        Assert.Equal(2, product.StockQuantity);
+        var id = Guid.NewGuid();
+        var product = Product.Create(id, "  Mouse ", "d", new Money(25m));
 
-        product.Release(3);
-        Assert.Equal(5, product.StockQuantity);
-    }
-
-    [Fact]
-    public void Reserve_more_than_available_is_rejected_and_keeps_stock()
-    {
-        var product = Product.Create("Mouse", string.Empty, new Money(25m), 2);
-
-        Assert.Throws<DomainException>(() => product.Reserve(3));
-        Assert.Equal(2, product.StockQuantity);
+        Assert.Equal(id, product.Id);
+        Assert.Equal("Mouse", product.Name);
+        Assert.Equal(25m, product.Price.Amount);
     }
 
     [Fact]

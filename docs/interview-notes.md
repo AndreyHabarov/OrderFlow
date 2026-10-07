@@ -106,3 +106,11 @@ Weak spots found in interview rounds are listed per stage.
 - Cause: `IHost` only exposes the synchronous `Dispose`. The DI container then disposes async-only singletons (the RabbitMQ connection) by blocking a thread on `DisposeAsync`, which stalls until internal timeouts (~45 s). Disposing the publisher manually first made it vanish, which pinned it down.
 - Fix: a small `TestHost` wrapper that disposes asynchronously (`await using`). Production workers are fine because `RunAsync` disposes the host asynchronously.
 - Takeaway: sync-over-async disposal is a classic way to get mysterious shutdown delays (and deadlocks with a synchronization context). Measure with laps instead of guessing.
+
+### Orders switch-over (S2-05/S2-06): what changed and what to say about it
+- Checkout used to reserve stock in one database transaction (strong consistency inside one service). Now it saves a `Pending` order and publishes `order.created`; Inventory and Payments answer with events (eventual consistency across services). Say what you gained (independent services and data, a failure in Payments does not break ordering) and what you gave up (the order is not final when the HTTP call returns, extra failure modes, the gaps listed in ADR 0006).
+- Stock no longer lives in the catalog. The catalog cache has no invalidation on checkout any more.
+- Demonstrated in Docker: decline -> `Cancelled` with reason; 11 units of a 10-unit product -> `Cancelled`; Payments stopped -> order waits in `StockReserved`, the queue holds the message, after restart the order becomes `Confirmed`.
+- Found while testing: until a consumer service has started once, its queue does not exist, so a published message is returned as unroutable (the order stayed `Pending`). Fix: the publishing service declares all queues at startup (`AddTopology`). Lesson: topology ownership and start order.
+- Known limitation visible to users: when payment fails, the reserved stock is not released (gap 3, stage 3 compensation) and the cancellation reason for stock shows a product id.
+- Questions: why choreography first; what happens if Orders dies right after the commit (Pending forever; outbox); how a late `payment.succeeded` for a cancelled order is handled today (logged as needing a refund); why event handlers are idempotent commands; what `mandatory` plus `AddTopology` protect against.

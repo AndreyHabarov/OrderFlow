@@ -72,6 +72,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PROJECT: OrderFlow.Api
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
@@ -104,6 +106,58 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+
+  # Workers have no HTTP endpoint, so they have no healthcheck here (queue depth and logs show their state;
+  # proper liveness comes with the observability work in stage 5).
+  inventory:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROJECT: OrderFlow.Inventory
+    restart: unless-stopped
+    environment:
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__User: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      Seq__Url: http://seq:80
+      Database__MigrateOnStartup: "true"
+      Inventory__SeedDemoStock: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      seq:
+        condition: service_healthy
+
+  payments:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROJECT: OrderFlow.Payments
+    restart: unless-stopped
+    environment:
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Redis: redis:6379
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__User: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      Seq__Url: http://seq:80
+      Database__MigrateOnStartup: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seq:
+        condition: service_healthy
 
 volumes:
   postgres-data:

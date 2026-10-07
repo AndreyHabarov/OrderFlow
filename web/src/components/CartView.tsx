@@ -81,8 +81,9 @@ export function CartView({ cart, onCartChanged, onOrdered }: Props) {
       <section className="card">
         <h2>Thank you!</h2>
         <p>
-          Order <code>{placed.id.slice(0, 8)}</code> is <strong>{placed.status}</strong>. Total {money(placed.total, placed.currency)}.
+          Order <code>{placed.id.slice(0, 8)}</code> was accepted (<strong>{placed.status}</strong>). Total {money(placed.total, placed.currency)}.
         </p>
+        <p className="hint">We are checking stock and payment. Follow the status under Orders.</p>
         <button type="button" onClick={() => setPlaced(null)}>
           Continue shopping
         </button>

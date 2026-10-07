@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using OrderFlow.Application.Abstractions;
 using OrderFlow.Application.Catalog;
@@ -11,8 +12,22 @@ namespace OrderFlow.Application.Orders;
 /// Turns the customer's cart into an order. In stage 1 everything is synchronous: stock is reserved in the same
 /// database transaction that creates the order and empties the cart, so the order ends in <c>StockReserved</c>.
 /// Stage 2 replaces the stock step with messages.
+/// The command is idempotent: the same <see cref="IdempotencyKey"/> from the same customer never creates a second order.
 /// </summary>
-public sealed record CheckoutCommand : IRequest<OrderDto>;
+public sealed record CheckoutCommand(string IdempotencyKey) : IRequest<CheckoutResult>;
+
+/// <summary><see cref="Replayed"/> is true when the order already existed for this idempotency key.</summary>
+public sealed record CheckoutResult(OrderDto Order, bool Replayed);
+
+internal sealed class CheckoutCommandValidator : AbstractValidator<CheckoutCommand>
+{
+    public CheckoutCommandValidator()
+    {
+        RuleFor(c => c.IdempotencyKey)
+            .NotEmpty().WithMessage("The Idempotency-Key header is required.")
+            .MaximumLength(100);
+    }
+}
 
 internal sealed class CheckoutCommandHandler(
     ICartRepository carts,
@@ -21,11 +36,19 @@ internal sealed class CheckoutCommandHandler(
     IUnitOfWork unitOfWork,
     ICacheService cache,
     ICurrentUser currentUser,
-    TimeProvider timeProvider) : IRequestHandler<CheckoutCommand, OrderDto>
+    TimeProvider timeProvider) : IRequestHandler<CheckoutCommand, CheckoutResult>
 {
-    public async Task<OrderDto> Handle(CheckoutCommand request, CancellationToken cancellationToken)
+    public async Task<CheckoutResult> Handle(CheckoutCommand request, CancellationToken cancellationToken)
     {
         var customerId = currentUser.CustomerId;
+
+        // Fast path: a retry of a request that already succeeded.
+        var existing = await orders.GetByIdempotencyKeyAsync(customerId, request.IdempotencyKey, cancellationToken);
+        if (existing is not null)
+        {
+            return new CheckoutResult(OrderDto.From(existing), Replayed: true);
+        }
+
         var cart = await carts.GetByCustomerAsync(customerId, cancellationToken);
         if (cart is null || cart.Items.Count == 0)
         {
@@ -48,17 +71,29 @@ internal sealed class CheckoutCommandHandler(
         }
 
         var now = timeProvider.GetUtcNow();
-        var order = Order.Create(customerId, orderItems, now);
+        var order = Order.Create(customerId, orderItems, now, request.IdempotencyKey);
         order.MarkStockReserved(now);
 
         orders.Add(order);
         cart.Clear();
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex) when (unitOfWork.IsUniqueViolation(ex))
+        {
+            // A concurrent request with the same key committed first. Our transaction (including the stock
+            // reservation) was rolled back, so we simply return the order that won.
+            var winner = await orders.GetByIdempotencyKeyAsync(customerId, request.IdempotencyKey, cancellationToken)
+                         ?? throw new InvalidOperationException("Unique violation without an existing order.", ex);
+            return new CheckoutResult(OrderDto.From(winner), Replayed: true);
+        }
 
         // Stock changed, so cached catalog pages are stale.
         await cache.InvalidateNamespaceAsync(CatalogCache.Namespace, cancellationToken);
 
-        return OrderDto.From(order);
+        return new CheckoutResult(OrderDto.From(order), Replayed: false);
     }
 }
 

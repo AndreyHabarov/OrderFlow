@@ -50,6 +50,9 @@ internal sealed class FakeOrders : IOrderRepository
 
     public void Add(Order order) => Store.Add(order);
 
+    public Task<Order?> GetByIdempotencyKeyAsync(Guid customerId, string idempotencyKey, CancellationToken cancellationToken) =>
+        Task.FromResult(Store.FirstOrDefault(o => o.CustomerId == customerId && o.IdempotencyKey == idempotencyKey));
+
     public Task<Order?> GetForCustomerAsync(Guid orderId, Guid customerId, CancellationToken cancellationToken) =>
         Task.FromResult(Store.FirstOrDefault(o => o.Id == orderId && o.CustomerId == customerId));
 
@@ -64,11 +67,22 @@ internal sealed class FakeUnitOfWork : IUnitOfWork
 {
     public int Saves { get; private set; }
 
+    /// <summary>Runs inside the next save and may throw, e.g. to simulate a concurrent duplicate insert.</summary>
+    public Action? OnNextSave { get; set; }
+
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken)
     {
+        if (OnNextSave is { } hook)
+        {
+            OnNextSave = null;
+            hook();
+        }
+
         Saves++;
         return Task.FromResult(1);
     }
+
+    public bool IsUniqueViolation(Exception exception) => exception is UniqueViolationSimulated;
 }
 
 internal sealed class FakeCurrentUser(Guid customerId) : ICurrentUser
@@ -148,4 +162,8 @@ internal sealed class TestApp
 
     public static Product Product(string name, decimal price = 10m, int stock = 5) =>
         OrderFlow.Domain.Catalog.Product.Create(name, "d", new Money(price), stock);
+}
+
+internal sealed class UniqueViolationSimulated : Exception
+{
 }

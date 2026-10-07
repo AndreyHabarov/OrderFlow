@@ -11,6 +11,9 @@ public interface ICurrentUser
 public interface IUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
+
+    /// <summary>True when the exception is a unique constraint violation (a concurrent duplicate insert).</summary>
+    bool IsUniqueViolation(Exception exception);
 }
 
 /// <summary>The requested resource does not exist (or is not visible to the caller). Mapped to 404.</summary>

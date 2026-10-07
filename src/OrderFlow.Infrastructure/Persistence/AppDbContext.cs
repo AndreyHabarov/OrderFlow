@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using OrderFlow.Application.Common;
 using OrderFlow.Domain.Carts;
 using OrderFlow.Domain.Catalog;
@@ -16,6 +17,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Cart> Carts => Set<Cart>();
 
     public DbSet<Order> Orders => Set<Order>();
+
+    public bool IsUniqueViolation(Exception exception) =>
+        exception is DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } };
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

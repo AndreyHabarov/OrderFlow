@@ -8,13 +8,27 @@ namespace OrderFlow.Api.Controllers;
 [Route("api/orders")]
 public sealed class OrdersController(ISender sender) : ControllerBase
 {
-    /// <summary>Creates an order from the current cart.</summary>
+    public const string IdempotencyKeyHeader = "Idempotency-Key";
+
+    /// <summary>
+    /// Creates an order from the current cart. Requires an <c>Idempotency-Key</c> header: retrying with the same key
+    /// returns the original order (200 with <c>Idempotent-Replayed: true</c>) instead of creating another one.
+    /// </summary>
     [HttpPost]
     [ProducesResponseType<OrderDto>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<OrderDto>> Checkout(CancellationToken cancellationToken)
+    [ProducesResponseType<OrderDto>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<OrderDto>> Checkout(
+        [FromHeader(Name = IdempotencyKeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
     {
-        var order = await sender.Send(new CheckoutCommand(), cancellationToken);
-        return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
+        var result = await sender.Send(new CheckoutCommand(idempotencyKey ?? string.Empty), cancellationToken);
+        if (result.Replayed)
+        {
+            Response.Headers["Idempotent-Replayed"] = "true";
+            return Ok(result.Order);
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = result.Order.Id }, result.Order);
     }
 
     [HttpGet]

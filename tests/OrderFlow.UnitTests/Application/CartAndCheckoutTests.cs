@@ -9,6 +9,9 @@ namespace OrderFlow.UnitTests.Application;
 
 public class CartAndCheckoutTests
 {
+    private static async Task<CheckoutResult> Checkout(TestApp app, string key = "key-1") =>
+        await app.Sender.Send(new CheckoutCommand(key));
+
     [Fact]
     public async Task Adding_the_same_product_twice_merges_quantities()
     {
@@ -53,11 +56,12 @@ public class CartAndCheckoutTests
         await app.Sender.Send(new AddCartItemCommand(keyboard.Id, 2));
         await app.Sender.Send(new AddCartItemCommand(mouse.Id, 1));
 
-        var order = await app.Sender.Send(new CheckoutCommand());
+        var result = await Checkout(app);
 
-        Assert.Equal(nameof(OrderStatus.StockReserved), order.Status);
-        Assert.Equal(120m, order.Total);
-        Assert.Equal(2, order.Items.Count);
+        Assert.False(result.Replayed);
+        Assert.Equal(nameof(OrderStatus.StockReserved), result.Order.Status);
+        Assert.Equal(120m, result.Order.Total);
+        Assert.Equal(2, result.Order.Items.Count);
         Assert.Equal(3, keyboard.StockQuantity);
         Assert.Equal(2, mouse.StockQuantity);
         Assert.Empty(app.Carts.Store.Single().Items);
@@ -73,7 +77,7 @@ public class CartAndCheckoutTests
         await app.Sender.Send(new AddCartItemCommand(product.Id, 2));
         var savesBefore = app.UnitOfWork.Saves;
 
-        await Assert.ThrowsAsync<DomainException>(() => app.Sender.Send(new CheckoutCommand()));
+        await Assert.ThrowsAsync<DomainException>(() => Checkout(app));
 
         Assert.Empty(app.Orders.Store);
         Assert.Equal(savesBefore, app.UnitOfWork.Saves);
@@ -85,7 +89,7 @@ public class CartAndCheckoutTests
     {
         var app = new TestApp();
 
-        await Assert.ThrowsAsync<DomainException>(() => app.Sender.Send(new CheckoutCommand()));
+        await Assert.ThrowsAsync<DomainException>(() => Checkout(app));
     }
 
     [Fact]
@@ -95,8 +99,8 @@ public class CartAndCheckoutTests
         var app = new TestApp(null, product);
         await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
 
-        var order = await app.Sender.Send(new CheckoutCommand());
-        var fetched = await app.Sender.Send(new GetOrderQuery(order.Id));
+        var created = await Checkout(app);
+        var fetched = await app.Sender.Send(new GetOrderQuery(created.Order.Id));
 
         Assert.Equal(50m, fetched.Items[0].UnitPrice);
         Assert.Equal("Keyboard", fetched.Items[0].ProductName);
@@ -108,7 +112,7 @@ public class CartAndCheckoutTests
         var product = TestApp.Product("Keyboard");
         var owner = new TestApp(null, product);
         await owner.Sender.Send(new AddCartItemCommand(product.Id, 1));
-        var order = await owner.Sender.Send(new CheckoutCommand());
+        var created = await Checkout(owner);
 
         // Same stores, different identity.
         var stranger = new TestApp(Guid.NewGuid(), product);
@@ -117,6 +121,69 @@ public class CartAndCheckoutTests
             stranger.Orders.Store.Add(o);
         }
 
-        await Assert.ThrowsAsync<NotFoundException>(() => stranger.Sender.Send(new GetOrderQuery(order.Id)));
+        await Assert.ThrowsAsync<NotFoundException>(() => stranger.Sender.Send(new GetOrderQuery(created.Order.Id)));
+    }
+
+    [Fact]
+    public async Task Missing_idempotency_key_is_rejected()
+    {
+        var app = new TestApp();
+
+        await Assert.ThrowsAsync<ValidationException>(() => Checkout(app, key: ""));
+    }
+
+    [Fact]
+    public async Task Retrying_with_the_same_key_returns_the_same_order_and_reserves_stock_once()
+    {
+        var product = TestApp.Product("Keyboard", stock: 5);
+        var app = new TestApp(null, product);
+        await app.Sender.Send(new AddCartItemCommand(product.Id, 2));
+
+        var first = await Checkout(app, "same-key");
+        var second = await Checkout(app, "same-key");
+
+        Assert.False(first.Replayed);
+        Assert.True(second.Replayed);
+        Assert.Equal(first.Order.Id, second.Order.Id);
+        Assert.Single(app.Orders.Store);
+        Assert.Equal(3, product.StockQuantity);
+    }
+
+    [Fact]
+    public async Task A_different_key_after_the_cart_was_emptied_is_a_new_attempt_and_fails()
+    {
+        var product = TestApp.Product("Keyboard", stock: 5);
+        var app = new TestApp(null, product);
+        await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
+        await Checkout(app, "key-a");
+
+        await Assert.ThrowsAsync<DomainException>(() => Checkout(app, "key-b"));
+    }
+
+    [Fact]
+    public async Task Concurrent_duplicate_is_resolved_by_returning_the_winning_order()
+    {
+        var product = TestApp.Product("Keyboard", stock: 5);
+        var app = new TestApp(null, product);
+        await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
+
+        // While we are saving, another request with the same key commits first and our insert hits the unique index.
+        var winner = Order.Create(
+            app.CustomerId,
+            [new OrderItem(product.Id, "Keyboard", 1, new Money(10m))],
+            DateTimeOffset.UtcNow,
+            "race-key");
+        app.UnitOfWork.OnNextSave = () =>
+        {
+            app.Orders.Store.RemoveAll(o => o.IdempotencyKey == "race-key");
+            app.Orders.Store.Add(winner);
+            throw new UniqueViolationSimulated();
+        };
+
+        var result = await Checkout(app, "race-key");
+
+        Assert.True(result.Replayed);
+        Assert.Equal(winner.Id, result.Order.Id);
+        Assert.Equal(0, app.Cache.Invalidations);
     }
 }

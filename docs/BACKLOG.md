@@ -39,7 +39,7 @@ Design: ADR 0006. The switch from synchronous stock reservation to messages happ
 
 - [x] S2-01 ADR 0006, message contracts with `[MessageType]` routing keys, topology constants, shared demo catalog ids
 - [x] S2-02 `OrderFlow.Messaging`: connection, publisher with confirms, consumer base (manual ack, prefetch, graceful shutdown), topology declaration; tests on a RabbitMQ container
-- [ ] S2-03 Inventory service: worker, schema `inventory`, reserve stock on `OrderCreated`, emit `StockReserved` / `StockReservationFailed`; idempotent by order id
+- [x] S2-03 Inventory service: worker, schema `inventory`, reserve stock on `OrderCreated`, emit `StockReserved` / `StockReservationFailed`; idempotent by order id
 - [ ] S2-04 Payments service: worker, schema `payments`, emulator modes (success, bank decline, timeout) switched through Redis; emit `PaymentSucceeded` / `PaymentFailed`
 - [ ] S2-05 Orders switch-over: checkout publishes `OrderCreated`, consumers move the order through its statuses and emit `OrderConfirmed`, stock removed from the catalog, UI polls order status
 - [ ] S2-06 Compose: inventory and payments containers (one parametrized Dockerfile), topology documented in `docs/architecture.md`, manual end-to-end check in Docker

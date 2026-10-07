@@ -11,15 +11,15 @@ using Testcontainers.RabbitMq;
 namespace OrderFlow.IntegrationTests.Messaging;
 
 /// <summary>A real RabbitMQ broker for the messaging tests, shared by the whole group.</summary>
-public sealed class RabbitMqFixture : IAsyncLifetime
+public class RabbitMqFixture : IAsyncLifetime
 {
     private readonly RabbitMqContainer _container = new RabbitMqBuilder("rabbitmq:4.3.6-alpine").Build();
 
-    public Task InitializeAsync() => _container.StartAsync();
+    public virtual Task InitializeAsync() => _container.StartAsync();
 
-    Task IAsyncLifetime.DisposeAsync() => _container.DisposeAsync().AsTask();
+    public virtual Task DisposeAsync() => _container.DisposeAsync().AsTask();
 
-    public Dictionary<string, string?> Settings => new()
+    public virtual Dictionary<string, string?> Settings => new()
     {
         ["RabbitMq:Host"] = _container.Hostname,
         ["RabbitMq:Port"] = _container.GetMappedPublicPort(5672).ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -68,6 +68,45 @@ public sealed class RabbitMqFixture : IAsyncLifetime
         await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
         await channel.QueueBindAsync(queue, Topology.EventsExchange, routingKey);
     }
+
+    /// <summary>Empties a queue (declaring it first) so leftovers of an earlier test cannot leak into this one.</summary>
+    public async Task PurgeQueueAsync(Topology.QueueDefinition queue)
+    {
+        await using var connection = await OpenConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await channel.ExchangeDeclareAsync(Topology.EventsExchange, ExchangeType.Topic, durable: true);
+        await channel.QueueDeclareAsync(queue.Name, durable: true, exclusive: false, autoDelete: false);
+        foreach (var key in queue.RoutingKeys)
+        {
+            await channel.QueueBindAsync(queue.Name, Topology.EventsExchange, key);
+        }
+
+        await channel.QueuePurgeAsync(queue.Name);
+    }
+
+    /// <summary>Reads messages from a queue that is bound but not consumed, until <paramref name="expected"/> arrived or time ran out.</summary>
+    public async Task<List<T>> ReceiveAsync<T>(string queue, int expected, int seconds = 20)
+    {
+        var found = new List<T>();
+        await using var connection = await OpenConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        var deadline = DateTime.UtcNow.AddSeconds(seconds);
+        while (found.Count < expected && DateTime.UtcNow < deadline)
+        {
+            var result = await channel.BasicGetAsync(queue, autoAck: true);
+            if (result is null)
+            {
+                await Task.Delay(50);
+                continue;
+            }
+
+            found.Add(System.Text.Json.JsonSerializer.Deserialize<T>(result.Body.Span, JsonOptions)!);
+        }
+
+        return found;
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new(System.Text.Json.JsonSerializerDefaults.Web);
 
     public static Topology.QueueDefinition NewQueue(params string[] routingKeys) => new($"test.{Guid.NewGuid():N}", routingKeys);
 

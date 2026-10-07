@@ -86,3 +86,11 @@ Weak spots found in interview rounds are listed per stage.
 - Why does the consumer refuse to start when a bound routing key has no handler?
 - Why one connection and few channels? Why is a channel not thread-safe and how does the publisher cope (a semaphore)?
 - Where do correlation and causation ids live and why not in the JSON body?
+
+### Inventory service (S2-03), questions to be able to answer
+- Walk through what happens when `OrderCreated` is delivered twice. (The reservation row keyed by order id is committed together with the stock change, so the second delivery only repeats the answer.)
+- Why is the order "commit, then publish, then ack" and what recovers a crash between commit and publish? (Redelivery: the handler finds the reservation and republishes. Tested with a publisher that fails once.)
+- Two Inventory instances compete for the same queue. How is overselling prevented? (`xmin` row version on the stock row: the loser gets a concurrency exception, the message is requeued and re-read.) What do the duplicate answers cost downstream? (Consumers must be idempotent.)
+- Why does a failed reservation also get a row? (So a redelivered message cannot flip a refusal into a success after stock changes.)
+- Why does Inventory keep customer id and total in its own table? (It must be able to rebuild its answer without calling Orders.)
+- Why one schema per service in a shared database, and what would change with one database per service?

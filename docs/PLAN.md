@@ -26,7 +26,7 @@ Same stack as the original; clarified decisions:
 
 - **Messaging library:** raw `RabbitMQ.Client` through stage 3 including hand-written outbox/inbox. Write an ADR comparing with MassTransit (check v9 licensing) and Wolverine at the end of stage 3 instead of rewriting. This removes the "rewrite in the middle of stage 3" risk.
 - **Saga:** choreography first (stage 2), orchestrator in Orders (stage 3), ADR comparing them. Cut candidate: keep only one if time is short.
-- **Redis, justified:** catalog cache-aside with invalidation; idempotency keys for `POST /orders`. Stock reservations live in PostgreSQL with `expires_at` and an expiry job (no Redis locks unless an ADR justifies them).
+- **Redis, justified:** catalog cache-aside with invalidation only. Idempotency of `POST /orders` lives in PostgreSQL (unique `(customer_id, idempotency_key)`, ADR 0004), because a cache must not be the source of truth for correctness. Stock reservations live in PostgreSQL with `expires_at` and an expiry job (no Redis locks unless an ADR justifies them).
 - **Contracts:** `OrderFlow.Contracts` project, message envelope (`MessageId`, `CorrelationId`, `CausationId`, `OccurredAt`, `Type`, `Version`), additive-only changes.
 - **API style:** classic MVC controllers (`[ApiController]`), not minimal APIs; controllers stay thin and delegate to MediatR.
 - **Data:** PostgreSQL, one schema per service, outbox + inbox tables per service.

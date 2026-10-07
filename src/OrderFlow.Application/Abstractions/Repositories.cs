@@ -26,6 +26,9 @@ public interface IOrderRepository
 {
     void Add(Order order);
 
+    /// <summary>The customer's order created with this idempotency key, if any (read-only).</summary>
+    Task<Order?> GetByIdempotencyKeyAsync(Guid customerId, string idempotencyKey, CancellationToken cancellationToken);
+
     /// <summary>Returns the order only if it belongs to the customer.</summary>
     Task<Order?> GetForCustomerAsync(Guid orderId, Guid customerId, CancellationToken cancellationToken);
 

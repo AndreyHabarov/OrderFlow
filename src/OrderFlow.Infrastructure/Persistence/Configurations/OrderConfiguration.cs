@@ -12,6 +12,10 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasKey(o => o.Id);
         builder.Property(o => o.Id).ValueGeneratedNever();
         builder.HasIndex(o => o.CustomerId);
+        builder.Property(o => o.IdempotencyKey).HasMaxLength(100);
+
+        // One order per (customer, key). PostgreSQL treats NULLs as distinct, so orders without a key are not affected.
+        builder.HasIndex(o => new { o.CustomerId, o.IdempotencyKey }).IsUnique();
         builder.Property(o => o.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(o => o.CancellationReason).HasMaxLength(500).IsRequired();
         builder.Ignore(o => o.Total);

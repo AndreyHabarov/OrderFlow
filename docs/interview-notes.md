@@ -44,3 +44,8 @@ Weak spots found in interview rounds are listed per stage.
 - Checkout is one database transaction: reserve stock, create order, empty cart. `Product` has a `xmin` row-version token, so two concurrent checkouts of the last item cannot both succeed (the loser gets 409). Truly concurrent behaviour is to be proven by an integration test in S1-08.
 - Temporary identity: `X-Customer-Id` header (`HeaderCurrentUser`), replaced by JWT in S1-06. Never expose it outside local development.
 - Questions: optimistic vs pessimistic locking and which one fits here; why the order stores a snapshot of name and price; why validation lives in a MediatR pipeline behavior; why `DomainException` maps to 422 and a concurrency conflict to 409.
+
+### Idempotency (S1-05)
+- Live test: 8 parallel `POST /orders` with one key gave 1x `201` and 7x `200 Idempotent-Replayed: true`; stock dropped by exactly 3; one order exists.
+- Problem found on the way: `docker compose up -d --build` failed silently (I only looked at the last output line) and an old container kept serving traffic, so my first test ran against stale code. Lesson: check the build exit status and the container's uptime/image before trusting a test. Root cause of the build failure: the Docker build context lacked `.editorconfig`, so analyzers ran on the generated migration with default severities and `TreatWarningsAsErrors` failed the Release publish.
+- Questions: why the database and not Redis for idempotency; what exactly happens to the losing request's transaction; why a replay returns 200 and not 201; what the limits are (no payload comparison).

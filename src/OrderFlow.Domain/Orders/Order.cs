@@ -23,11 +23,14 @@ public sealed class Order
 
     public string CancellationReason { get; private set; }
 
+    /// <summary>Client-supplied key that makes order creation safe to retry. Unique per customer when present.</summary>
+    public string? IdempotencyKey { get; private set; }
+
     public IReadOnlyCollection<OrderItem> Items => _items;
 
     public Money Total => _items.Aggregate(Money.Zero(), (sum, item) => sum.Add(item.LineTotal));
 
-    public static Order Create(Guid customerId, IEnumerable<OrderItem> items, DateTimeOffset now)
+    public static Order Create(Guid customerId, IEnumerable<OrderItem> items, DateTimeOffset now, string? idempotencyKey = null)
     {
         if (customerId == Guid.Empty)
         {
@@ -40,7 +43,8 @@ public sealed class Order
             CustomerId = customerId,
             Status = OrderStatus.Pending,
             CreatedAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
+            IdempotencyKey = idempotencyKey
         };
         order._items.AddRange(items);
 

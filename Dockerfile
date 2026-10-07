@@ -3,7 +3,7 @@
 # ---- restore: copy only project files first so the layer is cached until dependencies change ----
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS restore
 WORKDIR /src
-COPY Directory.Build.props Directory.Packages.props ./
+COPY Directory.Build.props Directory.Packages.props .editorconfig ./
 COPY src/OrderFlow.Api/OrderFlow.Api.csproj src/OrderFlow.Api/
 COPY src/OrderFlow.Application/OrderFlow.Application.csproj src/OrderFlow.Application/
 COPY src/OrderFlow.Domain/OrderFlow.Domain.csproj src/OrderFlow.Domain/

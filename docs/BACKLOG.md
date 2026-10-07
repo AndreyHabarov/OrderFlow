@@ -10,7 +10,7 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 - [x] S0-03 Build props, central package management, `.editorconfig`, `.gitattributes`
 - [x] S0-04 Clean Architecture projects + test projects
 - [ ] S0-05 `docker-compose.yml`: PostgreSQL, RabbitMQ (UI), Redis, Seq; pinned versions, healthchecks, `.env.example` (written, config validated; runtime check pending: Docker Desktop was off)
-- [ ] S0-06 Multi-stage `Dockerfile` for Api, `.dockerignore`, `api` service in compose
+- [ ] S0-06 Multi-stage `Dockerfile` for Api, `.dockerignore`, `api` service in compose (written; image build pending: Docker Desktop was off)
 - [ ] S0-07 Health endpoints `/health/live` and `/health/ready` (PostgreSQL, Redis, RabbitMQ checks)
 - [ ] S0-08 Serilog to Seq, `dotnet user-secrets` setup
 - [ ] S0-09 GitHub Actions: build + test on PR; Dependabot

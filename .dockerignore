@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/.vs/
+.git/
+.idea/
+.claude/
+.env
+.env.*
+docs/
+tests/
+web/node_modules/
+**/*.md
+docker-compose*.yml
+Dockerfile

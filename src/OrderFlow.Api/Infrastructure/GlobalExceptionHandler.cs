@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using OrderFlow.Application.Common;
 using OrderFlow.Domain.Common;
 
@@ -30,6 +31,10 @@ internal sealed partial class GlobalExceptionHandler(ILogger<GlobalExceptionHand
             NotFoundException notFound => Create(StatusCodes.Status404NotFound, "Not found", notFound.Message),
             UnauthorizedException unauthorized => Create(StatusCodes.Status401Unauthorized, "Unauthorized", unauthorized.Message),
             DomainException domain => Create(StatusCodes.Status422UnprocessableEntity, "Business rule violated", domain.Message),
+            DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } } => Create(
+                StatusCodes.Status409Conflict,
+                "Conflict",
+                "The request conflicts with a concurrent change. Please retry."),
             DbUpdateConcurrencyException => Create(
                 StatusCodes.Status409Conflict,
                 "Concurrent update",

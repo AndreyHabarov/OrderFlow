@@ -40,16 +40,21 @@ internal sealed class AddCartItemCommandHandler(
                       ?? throw new NotFoundException($"Product {request.ProductId} was not found.");
 
         var customerId = currentUser.CustomerId;
-        var cart = await carts.GetByCustomerAsync(customerId, cancellationToken);
-        if (cart is null)
-        {
-            cart = Cart.CreateFor(customerId);
-            carts.Add(cart);
-        }
 
-        cart.AddItem(product.Id, request.Quantity, product.Price);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return CartDto.From(cart);
+        // Two quick requests (a double click) can race to create the cart or to update the same item.
+        return await ConflictRetry.RunAsync(unitOfWork, async () =>
+        {
+            var cart = await carts.GetByCustomerAsync(customerId, cancellationToken);
+            if (cart is null)
+            {
+                cart = Cart.CreateFor(customerId);
+                carts.Add(cart);
+            }
+
+            cart.AddItem(product.Id, request.Quantity, product.Price);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return CartDto.From(cart);
+        });
     }
 }
 
@@ -60,11 +65,16 @@ internal sealed class RemoveCartItemCommandHandler(ICartRepository carts, IUnitO
 {
     public async Task<CartDto> Handle(RemoveCartItemCommand request, CancellationToken cancellationToken)
     {
-        var cart = await carts.GetByCustomerAsync(currentUser.CustomerId, cancellationToken)
-                   ?? throw new NotFoundException("The cart is empty.");
+        var customerId = currentUser.CustomerId;
 
-        cart.RemoveItem(request.ProductId);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return CartDto.From(cart);
+        return await ConflictRetry.RunAsync(unitOfWork, async () =>
+        {
+            var cart = await carts.GetByCustomerAsync(customerId, cancellationToken)
+                       ?? throw new NotFoundException("The cart is empty.");
+
+            cart.RemoveItem(request.ProductId);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return CartDto.From(cart);
+        });
     }
 }

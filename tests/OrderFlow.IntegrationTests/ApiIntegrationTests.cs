@@ -98,6 +98,24 @@ public sealed class ApiIntegrationTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Concurrent_cart_updates_by_a_new_customer_neither_fail_nor_lose_items()
+    {
+        // Found in the browser: two quick clicks by a customer without a cart raced to create it and one request got a 500.
+        var first = await factory.CreateProductAsync(stock: 50);
+        var second = await factory.CreateProductAsync(stock: 50);
+        var (client, _) = await factory.CreateCustomerAsync();
+
+        var adds = Enumerable.Range(0, 4).SelectMany(_ => new[] { first, second })
+            .Select(id => client.PostAsJsonAsync("/api/cart/items", new { productId = id, quantity = 1 }));
+        var responses = await Task.WhenAll(adds);
+
+        Assert.All(responses, r => Assert.Equal(HttpStatusCode.OK, r.StatusCode));
+        var cart = (await client.GetFromJsonAsync<CartDto>("/api/cart"))!;
+        Assert.Equal(2, cart.Items.Count);
+        Assert.All(cart.Items, item => Assert.Equal(4, item.Quantity));
+    }
+
+    [Fact]
     public async Task Customers_cannot_read_each_others_orders()
     {
         var productId = await factory.CreateProductAsync(stock: 5);

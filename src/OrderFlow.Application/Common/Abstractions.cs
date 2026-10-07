@@ -14,6 +14,37 @@ public interface IUnitOfWork
 
     /// <summary>True when the exception is a unique constraint violation (a concurrent duplicate insert).</summary>
     bool IsUniqueViolation(Exception exception);
+
+    /// <summary>True when the exception means another request changed the same rows first (optimistic concurrency).</summary>
+    bool IsConcurrencyConflict(Exception exception);
+
+    /// <summary>Forgets every tracked entity so a retry starts from fresh database state.</summary>
+    void DiscardChanges();
+}
+
+/// <summary>
+/// Repeats a read-modify-write operation when it loses a race (unique violation or concurrency conflict).
+/// Each attempt reloads fresh state, so the retry sees what the winner committed.
+/// </summary>
+internal static class ConflictRetry
+{
+    private const int MaxAttempts = 10;
+
+    public static async Task<T> RunAsync<T>(IUnitOfWork unitOfWork, Func<Task<T>> attempt)
+    {
+        for (var number = 1; ; number++)
+        {
+            try
+            {
+                return await attempt();
+            }
+            catch (Exception ex) when (number < MaxAttempts && (unitOfWork.IsUniqueViolation(ex) || unitOfWork.IsConcurrencyConflict(ex)))
+            {
+                unitOfWork.DiscardChanges();
+                await Task.Delay(TimeSpan.FromMilliseconds(10 * number));
+            }
+        }
+    }
 }
 
 /// <summary>The requested resource does not exist (or is not visible to the caller). Mapped to 404.</summary>

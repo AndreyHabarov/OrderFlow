@@ -122,3 +122,10 @@ Weak spots found in interview rounds are listed per stage.
 - Fix: a message type declares `RequiresConsumer`. Commands in disguise (`order.created`, `stock.reserved`, ...) must have a bound queue and fail loudly; pure announcements (`order.confirmed`) may have none. A contract test asserts the invariant: every message that requires a consumer is bound to some queue.
 - This is gap 2 of ADR 0006 in action: an always-failing message blocks a queue. It is the best motivation for stage 3 (retry with a limit and a dead-letter queue instead of an endless requeue).
 - Questions: when is `mandatory` right and when wrong; why requeue-forever is dangerous; what a dead-letter queue changes; how you would notice this in production (queue depth and unacked metrics, error rate, consumer lag).
+
+### A shutdown race that only CI showed (fix/consumer-stop-race)
+- Symptom: after merging S2-07 the first CI run on `main` was green, a rerun failed with all 39 tests passed but `Test Collection Cleanup Failure (api)`: a `NullReferenceException` while the test server shut down.
+- Cause: `RabbitMqConsumer.StopAsync` checked `_channel is null`, then used and finally cleared the field. When two stops overlapped, the second one reached `_channel.DisposeAsync()` after the first had set the field to null. Deliveries that were already in flight when the consumer was cancelled had the same hazard (`_channel!` in the message path).
+- Fix: `Interlocked.Exchange` takes ownership of the channel (a second stop becomes a no-op) and message processing uses the channel of the consumer that received the message. A test calls `StopAsync` on the same consumer 8 times concurrently (it failed about one run in three on the old code, passes 6 of 6 now).
+- Lessons: "green once" proves little for lifecycle code; reruns of CI are a cheap flakiness detector; nullable state touched from several threads needs an atomic hand-over, not a check-then-act.
+- Questions: what is check-then-act and how do you fix it (Interlocked, locks, ownership transfer); why must `StopAsync` be idempotent; what the broker does with unacknowledged messages when a channel closes.

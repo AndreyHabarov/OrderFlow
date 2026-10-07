@@ -7,7 +7,7 @@ using Testcontainers.Redis;
 namespace OrderFlow.IntegrationTests.Services;
 
 /// <summary>RabbitMQ, PostgreSQL and Redis for tests that run service hosts in-process.</summary>
-public sealed class ServicesFixture : RabbitMqFixture
+public class ServicesFixture : RabbitMqFixture
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18.6-alpine").Build();
     private readonly RedisContainer _redis = new RedisBuilder("redis:8.10.2-alpine").Build();

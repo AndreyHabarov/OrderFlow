@@ -8,4 +8,10 @@ namespace OrderFlow.Contracts;
 public sealed class MessageTypeAttribute(string routingKey) : Attribute
 {
     public string RoutingKey { get; } = routingKey;
+
+    /// <summary>
+    /// True (default) for messages that someone must handle, like a command in disguise: publishing fails loudly when no
+    /// queue is bound. False for pure announcements of facts, where having no subscriber yet is perfectly normal.
+    /// </summary>
+    public bool RequiresConsumer { get; init; } = true;
 }

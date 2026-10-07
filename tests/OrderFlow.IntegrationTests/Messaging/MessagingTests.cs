@@ -82,9 +82,20 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
         await using var host = rabbit.BuildHost();
         var publisher = host.Services.GetRequiredService<IMessagePublisher>();
 
-        // OrderConfirmed has no consumer in the topology, so no queue is bound for it in these tests.
+        // No queue is bound for stock.reservation-failed in these tests, and this message requires a consumer.
         await Assert.ThrowsAsync<MessagePublishException>(() =>
-            publisher.PublishAsync(new OrderConfirmed(Guid.NewGuid(), Guid.NewGuid())));
+            publisher.PublishAsync(new StockReservationFailed(Guid.NewGuid(), "no consumer")));
+    }
+
+    [Fact]
+    public async Task A_pure_announcement_without_subscribers_is_published_without_error()
+    {
+        // order.confirmed is a fact: nobody may be listening yet, and that must not fail the publisher.
+        await using var host = rabbit.BuildHost();
+
+        var id = await host.Services.GetRequiredService<IMessagePublisher>().PublishAsync(new OrderConfirmed(Guid.NewGuid(), Guid.NewGuid()));
+
+        Assert.NotEqual(Guid.Empty, id);
     }
 
     [Fact]

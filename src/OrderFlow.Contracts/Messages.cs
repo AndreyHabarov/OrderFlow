@@ -25,6 +25,6 @@ public sealed record PaymentSucceeded(Guid OrderId, decimal Amount, string Curre
 [MessageType("payment.failed")]
 public sealed record PaymentFailed(Guid OrderId, string Reason);
 
-/// <summary>Orders -> anyone interested. The order is paid and confirmed (no consumer yet; notifications could use it).</summary>
-[MessageType("order.confirmed")]
+/// <summary>Orders -> anyone interested. The order is paid and confirmed. A pure announcement: no consumer yet (notifications could use it), which is fine.</summary>
+[MessageType("order.confirmed", RequiresConsumer = false)]
 public sealed record OrderConfirmed(Guid OrderId, Guid CustomerId);

@@ -48,8 +48,16 @@ public class MessageCatalogTests
         var consumed = Topology.All.SelectMany(q => q.RoutingKeys).ToHashSet();
         var unconsumed = MessageCatalog.RoutingKeys.Where(key => !consumed.Contains(key)).ToList();
 
-        // OrderConfirmed is the only event nobody listens to yet (a notification service could).
-        Assert.Equal([MessageCatalog.RoutingKeyOf<OrderConfirmed>()], unconsumed);
+        // The rule: a message that requires a consumer must be bound somewhere; only pure announcements (here
+        // OrderConfirmed: a notification service could listen later) may have no queue.
+        var announcements = AllMessages
+            .Where(type => type.GetCustomAttribute<MessageTypeAttribute>()!.RequiresConsumer is false)
+            .Select(MessageCatalog.RoutingKeyOf)
+            .ToList();
+        Assert.Equal(announcements.Order().ToList(), unconsumed.Order().ToList());
+        Assert.Equal([MessageCatalog.RoutingKeyOf<OrderConfirmed>()], announcements);
+        Assert.False(MessageCatalog.RequiresConsumer<OrderConfirmed>());
+        Assert.True(MessageCatalog.RequiresConsumer<OrderCreated>());
     }
 
     [Fact]

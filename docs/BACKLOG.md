@@ -17,7 +17,7 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 - [ ] S0-10 Enable `main` ruleset (owner), switch to branch + PR workflow
 - [x] S0-11 `README.md` with Mermaid diagram, quick start, demo script outline; `docs/architecture.md`
 - [x] S0-12 ADR 0001 (Clean Architecture + CQRS), ADR 0002 (compose + healthchecks); `docs/interview-notes.md` template
-- [ ] S0-13 Claude Code: skills `adr`, `add-consumer`; subagents `code-reviewer`, `interviewer`; hooks; GitHub MCP
+- [x] S0-13 Claude Code: skills `adr`, `add-consumer`; subagents `code-reviewer`, `interviewer`; hooks; GitHub MCP (GitHub MCP skipped: gh CLI covers it; add-consumer is a draft until stage 2)
 - [ ] S0-14 Stage wrap-up: walkthrough, break-it-yourself, interview round
 
 ## Stage 1. Monolith without a broker

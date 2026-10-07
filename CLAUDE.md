@@ -101,3 +101,11 @@ cd web && npm run dev
 
 Stages 0-5 are defined in `docs/PLAN.md` with "done when" and "be able to answer" lists. At the end of each stage:
 ADR -> code walkthrough -> owner breaks the system by hand -> interview round -> metrics before/after in `docs/interview-notes.md`.
+
+## Claude Code setup in this repo
+
+- `.claude/settings.json`: permissions allowlist/denylist and hooks (committed). `settings.local.json` is personal and git-ignored.
+- Hooks (`.claude/hooks/`, Node scripts): block edits to `.env*` and `Migrations/`; format changed `.cs` files; run `dotnet test` before `git commit` when C#/project files are staged.
+- Skills (`.claude/skills/`): `adr`, `add-consumer` (draft until stage 2). Add a skill when a task has been repeated three times.
+- Subagents (`.claude/agents/`): `code-reviewer` (read-only review of the diff), `interviewer` (end-of-stage interview, updates `docs/interview-notes.md`).
+- GitHub access goes through the `gh` CLI; a GitHub MCP server is not configured.

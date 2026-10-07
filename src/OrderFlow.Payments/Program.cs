@@ -1,0 +1,16 @@
+using Microsoft.Extensions.Hosting;
+using OrderFlow.Payments;
+using Serilog;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services.AddSerilog((services, configuration) => configuration
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "orderflow-payments")
+    .WriteTo.Console()
+    .WriteTo.Seq(builder.Configuration["Seq:Url"] ?? "http://localhost:5351"));
+
+builder.Services.AddPaymentsService(builder.Configuration);
+
+await builder.Build().RunAsync();

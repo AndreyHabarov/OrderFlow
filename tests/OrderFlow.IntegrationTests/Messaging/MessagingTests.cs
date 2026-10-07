@@ -14,7 +14,7 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
 
     private static StockReserved SampleMessage() => new(Guid.NewGuid(), Guid.NewGuid(), 25m, "USD");
 
-    private static IHost ConsumerHost(RabbitMqFixture rabbit, Topology.QueueDefinition queue, Sink sink, Action<IServiceCollection>? extra = null) =>
+    private static TestHost ConsumerHost(RabbitMqFixture rabbit, Topology.QueueDefinition queue, Sink sink, Action<IServiceCollection>? extra = null) =>
         rabbit.BuildHost(services =>
         {
             services.AddSingleton(sink);
@@ -30,7 +30,7 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
     {
         var queue = RabbitMqFixture.NewQueue(StockReservedKey);
         var sink = new Sink();
-        using var host = ConsumerHost(rabbit, queue, sink);
+        await using var host = ConsumerHost(rabbit, queue, sink);
         await host.StartAsync();
 
         var message = SampleMessage();
@@ -52,7 +52,7 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
     {
         var queue = RabbitMqFixture.NewQueue(StockReservedKey);
         await rabbit.DeclareBoundQueueAsync(queue.Name, StockReservedKey);
-        using var host = rabbit.BuildHost();
+        await using var host = rabbit.BuildHost();
         var publisher = host.Services.GetRequiredService<IMessagePublisher>();
 
         var firstId = await publisher.PublishAsync(SampleMessage(), MessageContext.ForNewFlow("flow-7"));
@@ -79,7 +79,7 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
     [Fact]
     public async Task A_message_nobody_is_bound_to_is_refused_instead_of_silently_dropped()
     {
-        using var host = rabbit.BuildHost();
+        await using var host = rabbit.BuildHost();
         var publisher = host.Services.GetRequiredService<IMessagePublisher>();
 
         // OrderConfirmed has no consumer in the topology, so no queue is bound for it in these tests.
@@ -92,7 +92,7 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
     {
         var queue = RabbitMqFixture.NewQueue(StockReservedKey);
         var sink = new Sink();
-        using var host = rabbit.BuildHost(services =>
+        await using var host = rabbit.BuildHost(services =>
         {
             services.AddSingleton(sink);
             services.AddMessageConsumer(queue, builder => builder.Handle<StockReserved, FlakyHandler>(), o => o.RetryDelay = TimeSpan.FromMilliseconds(100));
@@ -113,13 +113,13 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
         var queue = RabbitMqFixture.NewQueue(StockReservedKey);
         var sink = new Sink();
 
-        using (var firstRun = ConsumerHost(rabbit, queue, sink))
+        await using (var firstRun = ConsumerHost(rabbit, queue, sink))
         {
             await firstRun.StartAsync(); // declares the queue and its binding
             await firstRun.StopAsync();
         }
 
-        using var publisherHost = rabbit.BuildHost();
+        await using var publisherHost = rabbit.BuildHost();
         var publisher = publisherHost.Services.GetRequiredService<IMessagePublisher>();
         var messages = Enumerable.Range(0, 3).Select(_ => SampleMessage()).ToList();
         foreach (var message in messages)
@@ -130,7 +130,7 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
         Assert.Equal(3u, await rabbit.ReadyMessagesAsync(queue.Name));
         Assert.Empty(sink.Received);
 
-        using var secondRun = ConsumerHost(rabbit, queue, sink);
+        await using var secondRun = ConsumerHost(rabbit, queue, sink);
         await secondRun.StartAsync();
         await sink.WaitForAsync(3);
 
@@ -143,7 +143,7 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
     {
         var queue = RabbitMqFixture.NewQueue(StockReservedKey);
         var gate = new Gate();
-        using var host = rabbit.BuildHost(services =>
+        await using var host = rabbit.BuildHost(services =>
         {
             services.AddSingleton(gate);
             services.AddMessageConsumer(queue, builder => builder.Handle<StockReserved, BlockingHandler>());
@@ -168,7 +168,7 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
     {
         var queue = RabbitMqFixture.NewQueue(StockReservedKey);
         var gate = new Gate();
-        using var host = rabbit.BuildHost(services =>
+        await using var host = rabbit.BuildHost(services =>
         {
             services.AddSingleton(gate);
             services.AddMessageConsumer(queue, builder => builder.Handle<StockReserved, BlockingHandler>(), o => o.Prefetch = 2);
@@ -195,7 +195,7 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
     {
         var queue = RabbitMqFixture.NewQueue(StockReservedKey);
         var sink = new Sink();
-        using var host = ConsumerHost(rabbit, queue, sink);
+        await using var host = ConsumerHost(rabbit, queue, sink);
         await host.StartAsync();
 
         await using (var connection = await rabbit.OpenConnectionAsync())
@@ -217,7 +217,7 @@ public sealed class MessagingTests(RabbitMqFixture rabbit)
     public async Task A_consumer_refuses_to_start_when_a_bound_key_has_no_handler()
     {
         var queue = RabbitMqFixture.NewQueue(StockReservedKey, MessageCatalog.RoutingKeyOf<PaymentFailed>());
-        using var host = rabbit.BuildHost(services =>
+        await using var host = rabbit.BuildHost(services =>
         {
             services.AddSingleton(new Sink());
             services.AddMessageConsumer(queue, builder => builder.Handle<StockReserved, RecordingHandler>());

@@ -28,14 +28,14 @@ public class RabbitMqFixture : IAsyncLifetime
     };
 
     /// <summary>A service host that has the publisher plus whatever <paramref name="configure"/> adds (consumers, handlers).</summary>
-    public IHost BuildHost(Action<IServiceCollection>? configure = null)
+    public TestHost BuildHost(Action<IServiceCollection>? configure = null)
     {
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(Settings);
         builder.Logging.ClearProviders();
         builder.Services.AddRabbitMq(builder.Configuration);
         configure?.Invoke(builder.Services);
-        return builder.Build();
+        return new TestHost(builder.Build());
     }
 
     public async Task<IConnection> OpenConnectionAsync()
@@ -188,4 +188,20 @@ public sealed class BlockingHandler(Gate gate) : IMessageHandler<StockReserved>
         await gate.Release.Task;
         gate.MarkCompleted();
     }
+}
+
+/// <summary>
+/// A service host that is always disposed asynchronously. <c>IHost</c> only exposes the synchronous <c>Dispose</c>,
+/// and the container then waits on RabbitMQ's asynchronous close from a blocked thread, which stalls for ~45 seconds.
+/// (The real workers are not affected: <c>RunAsync</c> disposes the host asynchronously.)
+/// </summary>
+public sealed class TestHost(IHost host) : IAsyncDisposable
+{
+    public IServiceProvider Services => host.Services;
+
+    public Task StartAsync() => host.StartAsync();
+
+    public Task StopAsync() => host.StopAsync();
+
+    public async ValueTask DisposeAsync() => await ((IAsyncDisposable)host).DisposeAsync();
 }

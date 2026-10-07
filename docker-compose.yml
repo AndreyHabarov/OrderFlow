@@ -62,7 +62,7 @@ services:
     volumes:
       - seq-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/api || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost/api >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -78,6 +78,7 @@ services:
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       ConnectionStrings__Redis: redis:6379
       RabbitMq__Host: rabbitmq
+      RabbitMq__Port: "5672"
       RabbitMq__User: ${RABBITMQ_USER}
       RabbitMq__Password: ${RABBITMQ_PASSWORD}
       Seq__Url: http://seq:80

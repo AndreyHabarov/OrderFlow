@@ -29,7 +29,7 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 - [x] S1-05 `Idempotency-Key` on `POST /orders` (unique key in PostgreSQL, ADR 0004; verified with 8 parallel requests)
 - [x] S1-06 JWT auth, roles (Customer/Admin), refresh tokens (ADR 0005; refresh rotation with reuse detection verified live)
 - [x] S1-07 ProblemDetails, global error handling, CORS (CORS policy from Cors:AllowedOrigins, verified with preflight)
-- [ ] S1-08 Integration tests on Testcontainers; run in CI
+- [x] S1-08 Integration tests on Testcontainers; run in CI (8 tests; real concurrency for idempotency and scarce stock; run in CI)
 - [ ] S1-09 React app: shop, cart, checkout (screen 1)
 - [ ] S1-10 Stage wrap-up
 

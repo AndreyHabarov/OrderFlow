@@ -143,8 +143,21 @@ internal sealed class TestApp
         services.AddSingleton<IUnitOfWork>(UnitOfWork);
         services.AddSingleton<ICacheService>(Cache);
         services.AddSingleton<ICurrentUser>(new FakeCurrentUser(CustomerId));
+        services.AddSingleton<OrderFlow.Application.Auth.IUserRepository>(Users);
+        services.AddSingleton<OrderFlow.Application.Auth.IRefreshTokenRepository>(RefreshTokens);
+        services.AddSingleton<OrderFlow.Application.Auth.IPasswordService>(Passwords);
+        services.AddSingleton<OrderFlow.Application.Auth.ITokenService>(new FakeTokens());
+        services.AddSingleton<TimeProvider>(Clock);
         Sender = services.BuildServiceProvider().GetRequiredService<ISender>();
     }
+
+    public FakeUsers Users { get; } = new();
+
+    public FakeRefreshTokens RefreshTokens { get; } = new();
+
+    public FakePasswords Passwords { get; } = new();
+
+    public FakeClock Clock { get; } = new();
 
     public Guid CustomerId { get; }
 
@@ -166,4 +179,76 @@ internal sealed class TestApp
 
 internal sealed class UniqueViolationSimulated : Exception
 {
+}
+
+internal sealed class FakeUsers : OrderFlow.Application.Auth.IUserRepository
+{
+    public List<OrderFlow.Domain.Users.User> Store { get; } = [];
+
+    public Task<OrderFlow.Domain.Users.User?> GetByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
+        Task.FromResult(Store.FirstOrDefault(u => u.Email == normalizedEmail));
+
+    public Task<OrderFlow.Domain.Users.User?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(Store.FirstOrDefault(u => u.Id == id));
+
+    public void Add(OrderFlow.Domain.Users.User user) => Store.Add(user);
+}
+
+internal sealed class FakeRefreshTokens : OrderFlow.Application.Auth.IRefreshTokenRepository
+{
+    public List<OrderFlow.Domain.Users.RefreshToken> Store { get; } = [];
+
+    public Task<OrderFlow.Domain.Users.RefreshToken?> GetByHashAsync(string tokenHash, CancellationToken cancellationToken) =>
+        Task.FromResult(Store.FirstOrDefault(t => t.TokenHash == tokenHash));
+
+    public void Add(OrderFlow.Domain.Users.RefreshToken token) => Store.Add(token);
+
+    public Task RevokeAllForUserAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        foreach (var token in Store.Where(t => t.UserId == userId))
+        {
+            token.Revoke(now);
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakePasswords : OrderFlow.Application.Auth.IPasswordService
+{
+    public int Simulations { get; private set; }
+
+    public string Hash(string password) => "hash:" + password;
+
+    public bool Verify(string passwordHash, string password) => passwordHash == "hash:" + password;
+
+    public void SimulateVerification() => Simulations++;
+}
+
+internal sealed class FakeTokens : OrderFlow.Application.Auth.ITokenService
+{
+    private int _counter;
+
+    public TimeSpan RefreshTokenLifetime { get; } = TimeSpan.FromDays(14);
+
+    public OrderFlow.Application.Auth.AccessToken CreateAccessToken(OrderFlow.Domain.Users.User user, DateTimeOffset now) =>
+        new($"access-{user.Id}", now.AddMinutes(15));
+
+    public OrderFlow.Application.Auth.NewRefreshToken CreateRefreshToken()
+    {
+        var plain = $"refresh-{++_counter}";
+        return new OrderFlow.Application.Auth.NewRefreshToken(plain, HashRefreshToken(plain));
+    }
+
+    public string HashRefreshToken(string plainToken) => "h(" + plainToken + ")";
+}
+
+/// <summary>Controllable clock for expiry tests.</summary>
+internal sealed class FakeClock : TimeProvider
+{
+    private DateTimeOffset _now = new(2026, 10, 7, 12, 0, 0, TimeSpan.Zero);
+
+    public void Advance(TimeSpan by) => _now += by;
+
+    public override DateTimeOffset GetUtcNow() => _now;
 }

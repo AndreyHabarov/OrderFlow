@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using OrderFlow.Application.Abstractions;
+using OrderFlow.Application.Auth;
 using OrderFlow.Application.Common;
+using OrderFlow.Infrastructure.Auth;
 using OrderFlow.Infrastructure.Caching;
 using OrderFlow.Infrastructure.Persistence;
 using OrderFlow.Infrastructure.Persistence.Repositories;
@@ -40,6 +43,14 @@ public static class DependencyInjection
         services.AddSingleton<ICacheService, RedisCacheService>();
 
         services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddSingleton<IPasswordService, PasswordService>();
+        services.AddSingleton<ITokenService, TokenService>();
+        services.AddOptions<AuthOptions>()
+            .Bind(configuration.GetSection(AuthOptions.SectionName))
+            .Validate(o => o.SigningKey.Length >= 32, "Jwt:SigningKey must be at least 32 characters. Set it with user-secrets or the JWT_SIGNING_KEY environment variable.")
+            .ValidateOnStart();
         services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());

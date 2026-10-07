@@ -49,3 +49,8 @@ Weak spots found in interview rounds are listed per stage.
 - Live test: 8 parallel `POST /orders` with one key gave 1x `201` and 7x `200 Idempotent-Replayed: true`; stock dropped by exactly 3; one order exists.
 - Problem found on the way: `docker compose up -d --build` failed silently (I only looked at the last output line) and an old container kept serving traffic, so my first test ran against stale code. Lesson: check the build exit status and the container's uptime/image before trusting a test. Root cause of the build failure: the Docker build context lacked `.editorconfig`, so analyzers ran on the generated migration with default severities and `TreatWarningsAsErrors` failed the Release publish.
 - Questions: why the database and not Redis for idempotency; what exactly happens to the losing request's transaction; why a replay returns 200 and not 201; what the limits are (no payload comparison).
+
+### Authentication (S1-06, ADR 0005)
+- Live checks: no token 401, tampered token 401, duplicate email 409, wrong password 401, refresh rotates the token, reusing the old refresh token 401 and then the newest one also 401 (all sessions revoked), admin login returns role Admin, full order flow works with a real JWT.
+- The container uptime ("Up 3 seconds") is now part of my checklist after every `docker compose up --build`, after the stale-container mistake in S1-05.
+- Questions: refresh rotation and reuse detection; why only the hash of the refresh token is stored; HS256 vs RS256 when services are split; what a 15-minute access token costs after logout; why identical errors for wrong password and unknown email; where a browser should keep the refresh token.

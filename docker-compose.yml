@@ -84,6 +84,9 @@ services:
       Seq__Url: http://seq:80
       Database__MigrateOnStartup: "true"
       Database__SeedDemoData: "true"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?set JWT_SIGNING_KEY in .env (at least 32 characters)}
+      Seed__AdminEmail: ${ADMIN_EMAIL:-}
+      Seed__AdminPassword: ${ADMIN_PASSWORD:-}
     ports:
       - "127.0.0.1:${API_PORT:-8085}:8080"
     depends_on:

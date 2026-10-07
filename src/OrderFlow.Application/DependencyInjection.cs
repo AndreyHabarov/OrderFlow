@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using OrderFlow.Application.Auth;
 using OrderFlow.Application.Common;
 
 namespace OrderFlow.Application;
@@ -14,6 +15,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddSingleton(TimeProvider.System);
+        services.AddScoped<TokenIssuer>();
         return services;
     }
 }

@@ -47,3 +47,19 @@ public sealed class UnauthorizedException : Exception
     {
     }
 }
+
+/// <summary>The request conflicts with the current state (for example a duplicate email). Mapped to 409.</summary>
+public sealed class ConflictException : Exception
+{
+    public ConflictException(string message) : base(message)
+    {
+    }
+
+    public ConflictException(string message, Exception innerException) : base(message, innerException)
+    {
+    }
+
+    public ConflictException()
+    {
+    }
+}

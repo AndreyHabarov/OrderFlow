@@ -1,10 +1,14 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using OrderFlow.Api.Infrastructure;
 using OrderFlow.Api.Middleware;
 using OrderFlow.Application;
 using OrderFlow.Application.Common;
 using OrderFlow.Infrastructure;
+using OrderFlow.Infrastructure.Auth;
 using OrderFlow.Infrastructure.Persistence;
 using Serilog;
 
@@ -22,10 +26,32 @@ builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUser, HeaderCurrentUser>();
+builder.Services.AddScoped<ICurrentUser, ClaimsCurrentUser>();
 builder.Services.AddOpenApi();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<AuthOptions>>((jwt, auth) =>
+    {
+        // Keep claim names exactly as issued ("sub", "role") instead of mapping them to legacy WS-Federation URIs.
+        jwt.MapInboundClaims = false;
+        jwt.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = auth.Value.Issuer,
+            ValidateAudience = true,
+            ValidAudience = auth.Value.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = auth.Value.CreateKey(),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+            NameClaimType = "sub",
+            RoleClaimType = "role"
+        };
+    });
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -35,7 +61,7 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
     await app.Services.MigrateDatabaseAsync();
 }
 
-// Opt-in: insert sample products into an empty catalog (local development only).
+// Opt-in: insert sample products and an admin account (local development only).
 if (app.Configuration.GetValue<bool>("Database:SeedDemoData"))
 {
     await app.Services.SeedDemoDataAsync();
@@ -51,6 +77,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 

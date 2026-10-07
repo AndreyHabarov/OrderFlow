@@ -13,7 +13,7 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 - [ ] S0-06 Multi-stage `Dockerfile` for Api, `.dockerignore`, `api` service in compose (written; image build pending: Docker Desktop was off)
 - [x] S0-07 Health endpoints `/health/live` and `/health/ready` (PostgreSQL, Redis, RabbitMQ checks) (ready returns 503 until dependencies are up; checked without Docker)
 - [x] S0-08 Serilog to Seq, `dotnet user-secrets` setup (Seq delivery not verified yet: needs Docker; correlation id middleware added)
-- [ ] S0-09 GitHub Actions: build + test on PR; Dependabot
+- [x] S0-09 GitHub Actions: build + test on PR; Dependabot (first run result to be verified on GitHub)
 - [ ] S0-10 Enable `main` ruleset (owner), switch to branch + PR workflow
 - [ ] S0-11 `README.md` with Mermaid diagram, quick start, demo script outline; `docs/architecture.md`
 - [ ] S0-12 ADR 0001 (Clean Architecture + CQRS), ADR 0002 (compose + healthchecks); `docs/interview-notes.md` template

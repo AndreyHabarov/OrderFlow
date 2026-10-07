@@ -53,6 +53,14 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization();
 
+// CORS for the React dev server (and any configured origins). Credentials are not needed: tokens travel in headers.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
+    .WithOrigins(allowedOrigins)
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .WithExposedHeaders("Idempotent-Replayed", "X-Correlation-Id")));
+
 var app = builder.Build();
 
 // Opt-in: apply EF Core migrations at startup (local/compose). In real deployments run them as a separate step.
@@ -78,6 +86,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -39,3 +39,7 @@ dotnet_naming_style.underscore_camel.capitalization = camel_case
 
 # Documentation comments are not required in this project
 dotnet_diagnostic.CS1591.severity = none
+
+# Test method names use underscores for readability
+[tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none

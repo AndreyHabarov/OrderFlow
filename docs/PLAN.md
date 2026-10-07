@@ -28,6 +28,7 @@ Same stack as the original; clarified decisions:
 - **Saga:** choreography first (stage 2), orchestrator in Orders (stage 3), ADR comparing them. Cut candidate: keep only one if time is short.
 - **Redis, justified:** catalog cache-aside with invalidation; idempotency keys for `POST /orders`. Stock reservations live in PostgreSQL with `expires_at` and an expiry job (no Redis locks unless an ADR justifies them).
 - **Contracts:** `OrderFlow.Contracts` project, message envelope (`MessageId`, `CorrelationId`, `CausationId`, `OccurredAt`, `Type`, `Version`), additive-only changes.
+- **API style:** classic MVC controllers (`[ApiController]`), not minimal APIs; controllers stay thin and delegate to MediatR.
 - **Data:** PostgreSQL, one schema per service, outbox + inbox tables per service.
 - **Tests:** unit (domain, handlers), integration on Testcontainers (real PostgreSQL + RabbitMQ), one Playwright smoke test for the UI, k6 for load in stage 5.
 
@@ -37,7 +38,7 @@ Every stage ends with: working result, commits, ADR, code walkthrough, "break it
 
 ### Stage 0. Foundation (3-4 evenings)
 - Restructure into the target layout (see `CLAUDE.md`): `src/`, `tests/`, `Directory.Build.props`, `Directory.Packages.props`, `.editorconfig`, analyzers. Move the template project to `src/OrderFlow.Api`, remove the weather sample.
-- `docker-compose.yml`: PostgreSQL, RabbitMQ (management UI), Redis, Seq; pinned versions, healthchecks, `.env.example`.
+- `docker-compose.yml`: PostgreSQL, RabbitMQ (management UI), Redis, Seq; pinned versions, healthchecks.
 - Health endpoints (`/health/live`, `/health/ready`), Serilog to Seq, `.gitignore` (add `.idea/`).
 - GitHub Actions: build + test on PR. Dependabot. Branch protection on `main`.
 - Claude Code setup: finalize `CLAUDE.md`, skills, subagents, hooks (section 6).

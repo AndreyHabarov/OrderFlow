@@ -24,9 +24,7 @@
       "Bash(git reset --hard *)",
       "Bash(git clean *)",
       "Bash(rm -rf *)",
-      "Bash(docker compose down -v *)",
-      "Read(./.env)",
-      "Read(./.env.*)"
+      "Bash(docker compose down -v *)"
     ]
   },
   "hooks": {

@@ -53,9 +53,17 @@ More detail: [docs/architecture.md](docs/architecture.md). Decisions: [docs/adr/
 Requirements: .NET 10 SDK, Docker Desktop, Node.js (for the frontend, later stages).
 
 ```bash
-cp .env.example .env        # then fill in the empty values (local development only)
-docker compose up -d        # PostgreSQL, RabbitMQ, Redis, Seq, API
+docker compose up -d        # PostgreSQL, RabbitMQ, Redis, Seq, API (reads .env)
 ```
+
+Create a `.env` file in the repository root (it is git-ignored; local development values only):
+
+| Variable | Example | Purpose |
+|---|---|---|
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | `postgres`, `postgres`, `orderflow` | PostgreSQL credentials and database name |
+| `RABBITMQ_USER`, `RABBITMQ_PASSWORD` | `orderflow`, `orderflow` | RabbitMQ credentials |
+| `POSTGRES_PORT`, `RABBITMQ_PORT`, `RABBITMQ_UI_PORT`, `REDIS_PORT`, `SEQ_UI_PORT`, `API_PORT` | `5442`, `5682`, `15682`, `6389`, `5351`, `8085` | Host ports (change them if they clash with other local projects) |
+| `ASPNETCORE_ENVIRONMENT` | `Production` | Environment of the API container |
 
 | Service | URL |
 |---|---|

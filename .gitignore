@@ -31,10 +31,9 @@ coverage/
 *.coverage
 *.coveragexml
 
-# Secrets and local configuration (use .env.example and user-secrets instead)
+# Secrets and local configuration (use user-secrets instead)
 .env
 .env.*
-!.env.example
 appsettings.Local.json
 *.pfx
 *.key

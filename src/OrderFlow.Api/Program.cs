@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OrderFlow.Api.Infrastructure;
 using OrderFlow.Api.Middleware;
 using OrderFlow.Application;
+using OrderFlow.Application.Common;
 using OrderFlow.Infrastructure;
 using OrderFlow.Infrastructure.Persistence;
 using Serilog;
@@ -17,6 +19,10 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .WriteTo.Seq(context.Configuration["Seq:Url"] ?? "http://localhost:5351"));
 
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HeaderCurrentUser>();
 builder.Services.AddOpenApi();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -35,6 +41,7 @@ if (app.Configuration.GetValue<bool>("Database:SeedDemoData"))
     await app.Services.SeedDemoDataAsync();
 }
 
+app.UseExceptionHandler();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
 

@@ -132,25 +132,30 @@ public sealed class ApiIntegrationTests(ApiFactory factory)
     [Fact]
     public async Task Parallel_checkouts_with_the_same_idempotency_key_create_exactly_one_order()
     {
-        var productId = await factory.CreateProductAsync(stock: 10);
-        var (client, _) = await factory.CreateCustomerAsync();
-        await AddToCartAsync(client, productId, 3);
-        var key = Guid.NewGuid().ToString();
-
-        var responses = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => CheckoutAsync(client, key)));
-
-        Assert.All(responses, r => Assert.True(r.StatusCode is HttpStatusCode.Created or HttpStatusCode.OK, $"Unexpected {r.StatusCode}"));
-        Assert.Equal(1, responses.Count(r => r.StatusCode == HttpStatusCode.Created));
-        var orderIds = new HashSet<Guid>();
-        foreach (var response in responses)
+        // Timing decides which race window is hit (before the cart is emptied, during the save, or right after),
+        // so the burst is repeated with fresh customers; a single run can pass by luck (it did, locally, before CI caught it).
+        for (var round = 0; round < 10; round++)
         {
-            orderIds.Add((await response.Content.ReadFromJsonAsync<OrderDto>())!.Id);
-        }
+            var productId = await factory.CreateProductAsync(stock: 10);
+            var (client, _) = await factory.CreateCustomerAsync();
+            await AddToCartAsync(client, productId, 3);
+            var key = Guid.NewGuid().ToString();
 
-        Assert.Single(orderIds);
-        Assert.Equal(7, await factory.GetStockAsync(productId));
-        var orders = await client.GetFromJsonAsync<List<OrderDto>>("/api/orders");
-        Assert.Single(orders!);
+            var responses = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => CheckoutAsync(client, key)));
+
+            Assert.All(responses, r => Assert.True(r.StatusCode is HttpStatusCode.Created or HttpStatusCode.OK, $"Round {round}: unexpected {r.StatusCode}"));
+            Assert.Equal(1, responses.Count(r => r.StatusCode == HttpStatusCode.Created));
+            var orderIds = new HashSet<Guid>();
+            foreach (var response in responses)
+            {
+                orderIds.Add((await response.Content.ReadFromJsonAsync<OrderDto>())!.Id);
+            }
+
+            Assert.Single(orderIds);
+            Assert.Equal(7, await factory.GetStockAsync(productId));
+            var orders = await client.GetFromJsonAsync<List<OrderDto>>("/api/orders");
+            Assert.Single(orders!);
+        }
     }
 
     [Fact]

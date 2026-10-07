@@ -50,7 +50,11 @@ internal sealed class FakeOrders : IOrderRepository
 
     public void Add(Order order) => Store.Add(order);
 
+    /// <summary>Makes the next N key lookups return nothing, simulating a request that looked just before the winner committed.</summary>
+    public int HideNextLookups { get; set; }
+
     public Task<Order?> GetByIdempotencyKeyAsync(Guid customerId, string idempotencyKey, CancellationToken cancellationToken) =>
+        HideNextLookups > 0 && HideNextLookups-- > 0 ? Task.FromResult<Order?>(null) :
         Task.FromResult(Store.FirstOrDefault(o => o.CustomerId == customerId && o.IdempotencyKey == idempotencyKey));
 
     public Task<Order?> GetForCustomerAsync(Guid orderId, Guid customerId, CancellationToken cancellationToken) =>
@@ -84,7 +88,7 @@ internal sealed class FakeUnitOfWork : IUnitOfWork
 
     public bool IsUniqueViolation(Exception exception) => exception is UniqueViolationSimulated;
 
-    public bool IsConcurrencyConflict(Exception exception) => false;
+    public bool IsConcurrencyConflict(Exception exception) => exception is ConcurrencySimulated;
 
     public void DiscardChanges()
     {
@@ -257,4 +261,8 @@ internal sealed class FakeClock : TimeProvider
     public void Advance(TimeSpan by) => _now += by;
 
     public override DateTimeOffset GetUtcNow() => _now;
+}
+
+internal sealed class ConcurrencySimulated : Exception
+{
 }

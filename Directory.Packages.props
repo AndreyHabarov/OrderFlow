@@ -6,6 +6,10 @@
 
     <ItemGroup>
         <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+        <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+        <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
+        <PackageVersion Include="AspNetCore.HealthChecks.Rabbitmq" Version="9.0.0" />
+        <PackageVersion Include="RabbitMQ.Client" Version="7.2.2" />
         <PackageVersion Include="coverlet.collector" Version="6.0.4" />
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
         <PackageVersion Include="xunit" Version="2.9.3" />

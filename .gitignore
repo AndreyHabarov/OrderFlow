@@ -1,5 +1,60 @@
-bin/
-obj/
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+publish/
 /packages/
+*.nupkg
+*.snupkg
+
+# IDEs and editors
+.idea/
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
 riderModule.iml
 /_ReSharper.Caches/
+_ReSharper*/
+
+# Tests and coverage
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+
+# Secrets and local configuration (use .env.example and user-secrets instead)
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+*.pfx
+*.key
+secrets.json
+
+# Docker local data
+docker-data/
+*.override.local.yml
+
+# Claude Code: personal settings stay local; skills, agents, settings.json are committed
+.claude/settings.local.json
+.claude/worktrees/
+
+# Frontend
+node_modules/
+web/dist/
+web/.vite/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini

@@ -63,7 +63,7 @@ One durable **topic exchange** `orderflow.events`; the routing key is the messag
 
 `order.confirmed` has no consumer yet (a notification service could use it).
 
-**Envelope** (AMQP properties, not the JSON body): `message-id`, `correlation-id` (one per business flow, taken from the HTTP request), `type` = routing key, `timestamp`, headers `causation-id` (the message that caused this one) and `version`. Messages are persistent; publishing waits for the broker's confirm and uses `mandatory` so an unroutable message raises an error instead of vanishing.
+**Envelope** (AMQP properties, not the JSON body): `message-id`, `correlation-id` (one per business flow, taken from the HTTP request), `type` = routing key, `timestamp`, headers `causation-id` (the message that caused this one) and `version`. Messages are persistent; publishing waits for the broker's confirm and uses `mandatory` so an unroutable message raises an error instead of vanishing. Pure announcements of facts (`[MessageType(..., RequiresConsumer = false)]`, today only `order.confirmed`) are exempt: having no subscriber yet is normal for them.
 
 **Consumers**: manual ack, prefetch 10, one message at a time. Handler success -> ack. Handler exception -> short delay, then nack with requeue. Unknown key or unreadable body -> nack without requeue. Graceful stop cancels the consumer, waits for the message in progress, then closes. A consumer refuses to start if a bound key has no handler.
 

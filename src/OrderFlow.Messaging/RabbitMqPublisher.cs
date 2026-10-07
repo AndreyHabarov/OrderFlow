@@ -46,8 +46,9 @@ internal sealed partial class RabbitMqPublisher(RabbitMqConnection connection, T
         {
             var channel = await GetChannelAsync(cancellationToken);
 
-            // mandatory: if no queue is bound for the routing key the broker returns the message instead of dropping it.
-            await channel.BasicPublishAsync(Topology.EventsExchange, routingKey, mandatory: true, properties, body, cancellationToken);
+            // mandatory: if no queue is bound for the routing key the broker returns the message instead of silently
+            // dropping it. Pure announcements (RequiresConsumer = false) may legitimately have no subscriber.
+            await channel.BasicPublishAsync(Topology.EventsExchange, routingKey, MessageCatalog.RequiresConsumer<T>(), properties, body, cancellationToken);
             LogPublished(routingKey, messageId, properties.CorrelationId);
             return messageId;
         }

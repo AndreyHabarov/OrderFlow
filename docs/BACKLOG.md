@@ -43,7 +43,7 @@ Design: ADR 0006. The switch from synchronous stock reservation to messages happ
 - [x] S2-04 Payments service: worker, schema `payments`, emulator modes (success, bank decline, timeout) switched through Redis; emit `PaymentSucceeded` / `PaymentFailed`
 - [x] S2-05 Orders switch-over: checkout publishes `OrderCreated`, consumers move the order through its statuses and emit `OrderConfirmed`, stock removed from the catalog, UI polls order status
 - [x] S2-06 Compose: inventory and payments containers (one parametrized Dockerfile), topology documented in `docs/architecture.md`, manual end-to-end check in Docker
-- [ ] S2-07 End-to-end tests: full chain, bank decline, out of stock, Payments stopped then started (messages accumulate and drain)
+- [x] S2-07 End-to-end tests: full chain, bank decline, out of stock, Payments stopped then started (messages accumulate and drain)
 - [ ] S2-08 Stage wrap-up (walkthrough, break-it-yourself, interview; owner involved)
 
 ## Stage 3. Reliability

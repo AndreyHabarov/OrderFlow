@@ -13,7 +13,19 @@ public static class MessageCatalog
 
     private static readonly Dictionary<string, Type> TypesByKey = KeysByType.ToDictionary(pair => pair.Value, pair => pair.Key);
 
+    private static readonly Dictionary<Type, bool> RequiresConsumerByType = typeof(MessageCatalog).Assembly
+        .GetTypes()
+        .Select(type => (type, attribute: type.GetCustomAttribute<MessageTypeAttribute>()))
+        .Where(pair => pair.attribute is not null)
+        .ToDictionary(pair => pair.type, pair => pair.attribute!.RequiresConsumer);
+
     public static IReadOnlyCollection<string> RoutingKeys => TypesByKey.Keys;
+
+    /// <summary>Whether publishing this message must fail when no queue is bound for it (see <see cref="MessageTypeAttribute.RequiresConsumer"/>).</summary>
+    public static bool RequiresConsumer<T>() =>
+        RequiresConsumerByType.TryGetValue(typeof(T), out var required)
+            ? required
+            : throw new ArgumentException($"{typeof(T).Name} is not a message: it has no [MessageType] attribute.");
 
     public static string RoutingKeyOf(Type messageType) =>
         KeysByType.TryGetValue(messageType, out var key)

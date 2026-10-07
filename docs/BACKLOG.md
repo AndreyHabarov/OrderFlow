@@ -31,18 +31,20 @@ Task ID = `S<stage>-<nn>`. Stage details are expanded just before the stage star
 - [x] S1-07 ProblemDetails, global error handling, CORS (CORS policy from Cors:AllowedOrigins, verified with preflight)
 - [x] S1-08 Integration tests on Testcontainers; run in CI (8 tests; real concurrency for idempotency and scarce stock; run in CI)
 - [x] S1-09 React app: shop, cart, checkout (screen 1) (shop, cart, checkout, orders, auth; vitest; web job in CI; two race bugs found and fixed)
-- [ ] S1-10 Stage wrap-up (walkthrough, break-it-yourself, interview round; owner involved)
+- [ ] S1-10 Stage wrap-up (deferred by the owner on 2026-10-07: interview and code walkthrough to be done later; see docs/interview-notes.md)
 
 ## Stage 2. Services and RabbitMQ
 
-- [ ] S2-01 Contracts + message envelope, topology doc
-- [ ] S2-02 RabbitMQ publisher with confirms
-- [ ] S2-03 Consumer base: manual ack, prefetch, graceful shutdown
-- [ ] S2-04 Inventory worker (reserve stock)
-- [ ] S2-05 Payments worker + emulator modes
-- [ ] S2-06 Choreography chain `OrderCreated -> StockReserved -> PaymentSucceeded -> OrderConfirmed`
-- [ ] S2-07 Test: Payments stopped, messages accumulate and are processed later
-- [ ] S2-08 Stage wrap-up
+Design: ADR 0006. The switch from synchronous stock reservation to messages happens in S2-05, so `main` keeps working after every task.
+
+- [x] S2-01 ADR 0006, message contracts with `[MessageType]` routing keys, topology constants, shared demo catalog ids
+- [ ] S2-02 `OrderFlow.Messaging`: connection, publisher with confirms, consumer base (manual ack, prefetch, graceful shutdown), topology declaration; tests on a RabbitMQ container
+- [ ] S2-03 Inventory service: worker, schema `inventory`, reserve stock on `OrderCreated`, emit `StockReserved` / `StockReservationFailed`; idempotent by order id
+- [ ] S2-04 Payments service: worker, schema `payments`, emulator modes (success, bank decline, timeout) switched through Redis; emit `PaymentSucceeded` / `PaymentFailed`
+- [ ] S2-05 Orders switch-over: checkout publishes `OrderCreated`, consumers move the order through its statuses and emit `OrderConfirmed`, stock removed from the catalog, UI polls order status
+- [ ] S2-06 Compose: inventory and payments containers (one parametrized Dockerfile), topology documented in `docs/architecture.md`, manual end-to-end check in Docker
+- [ ] S2-07 End-to-end tests: full chain, bank decline, out of stock, Payments stopped then started (messages accumulate and drain)
+- [ ] S2-08 Stage wrap-up (walkthrough, break-it-yourself, interview; owner involved)
 
 ## Stage 3. Reliability
 

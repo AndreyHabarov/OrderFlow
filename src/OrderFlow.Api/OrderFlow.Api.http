@@ -1,6 +1,4 @@
 @OrderFlow_HostAddress = http://localhost:5008
 
-GET {{OrderFlow_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
+### Health (added in stage 0)
+# GET {{OrderFlow_HostAddress}}/health/live

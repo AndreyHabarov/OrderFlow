@@ -13,7 +13,7 @@ Full plan: `docs/PLAN.md`. Architecture decisions: `docs/adr/`. Interview prep l
 - **Plan first.** For every feature: show a short plan + file list and wait for confirmation before writing code (use Plan mode).
 - **Small steps.** One feature = one branch = several small commits. Tests are the definition of done.
 - **Do not leave code the owner cannot explain.** After each stage: write ADR(s), walk through the 100-200 most important lines, then act as interviewer (10 middle+ questions), and record weak spots in `docs/interview-notes.md`.
-- **Git:** never commit or push without the owner's confirmation unless they said "auto-commit" in this session. Never force-push, never rewrite pushed history, never push to `main` directly once PR workflow starts.
+- **Git:** do NOT add `Co-Authored-By` or any AI attribution lines to commits or PR text (owner decision). Never commit or push without the owner's confirmation unless they said "auto-commit" in this session. Never force-push, never rewrite pushed history, never push to `main` directly once PR workflow starts.
 - If a stage runs over 2 weeks, propose cutting scope (cut order is in `docs/PLAN.md`) instead of extending.
 - Library versions and licenses (MassTransit, Docker images) must be checked at the moment of use; do not trust memory.
 

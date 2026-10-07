@@ -74,3 +74,15 @@ Weak spots found in interview rounds are listed per stage.
 - Fix: one helper `FindReplayAsync` used at the fast path, when the cart is empty, and in the catch for both unique violation and concurrency conflict; a conflict with no matching key (another customer won the stock) is rethrown as 409. Deterministic unit tests for windows 1 and 2 (they fail on the old handler, pass on the new one), integration burst repeated 10 times.
 - Lessons: a green PR check is not a guarantee for timing-dependent code; test the invariant under repetition; reproduce the failure deterministically with fakes when the real race is rare; read CI logs for the actual assertion instead of guessing.
 - Questions: list every point where two concurrent duplicates can diverge; why the same logical conflict surfaces as two different exceptions; how you would prove an idempotent endpoint correct (invariants, repetition, fault injection).
+
+## Stage 2: Services and RabbitMQ
+
+### Messaging library (S2-02), questions to be able to answer
+- What does a publisher confirm guarantee and what does it not? (Broker accepted and, for persistent messages on durable queues, wrote it; it says nothing about a consumer having processed it.)
+- Why `mandatory: true`? What happens to an unroutable message without it? (It is silently dropped.)
+- What do `ack`, `nack` with requeue and `nack` without requeue each do, and which one is used for a failing handler vs an unreadable message? Why is requeue-on-failure dangerous for a poison message (it loops; stage 3 adds retry + DLQ)?
+- What is prefetch? With prefetch 2 and a busy consumer, where do the other messages wait? (Measured: 5 published, 1 in progress + 1 buffered, 3 stay in the queue.)
+- What happens to unacknowledged messages when a consumer dies or the channel closes? Why does a graceful stop cancel the consumer first and then wait for the message in progress?
+- Why does the consumer refuse to start when a bound routing key has no handler?
+- Why one connection and few channels? Why is a channel not thread-safe and how does the publisher cope (a semaphore)?
+- Where do correlation and causation ids live and why not in the JSON body?

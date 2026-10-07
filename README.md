@@ -64,6 +64,8 @@ Create a `.env` file in the repository root (it is git-ignored; local developmen
 | `RABBITMQ_USER`, `RABBITMQ_PASSWORD` | `orderflow`, `orderflow` | RabbitMQ credentials |
 | `POSTGRES_PORT`, `RABBITMQ_PORT`, `RABBITMQ_UI_PORT`, `REDIS_PORT`, `SEQ_UI_PORT`, `API_PORT` | `5442`, `5682`, `15682`, `6389`, `5351`, `8085` | Host ports (change them if they clash with other local projects) |
 | `ASPNETCORE_ENVIRONMENT` | `Production` | Environment of the API container |
+| `JWT_SIGNING_KEY` | a random string of 32+ characters | Signs access tokens; the API refuses to start without it |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | `admin@orderflow.local`, your choice | Administrator created by the development seeder |
 
 | Service | URL |
 |---|---|
@@ -78,6 +80,7 @@ docker compose up -d postgres rabbitmq redis seq
 dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5442;Database=<db>;Username=<user>;Password=<password>" --project src/OrderFlow.Api
 dotnet user-secrets set "RabbitMq:User" "<user>" --project src/OrderFlow.Api
 dotnet user-secrets set "RabbitMq:Password" "<password>" --project src/OrderFlow.Api
+dotnet user-secrets set "Jwt:SigningKey" "<random string of 32+ characters>" --project src/OrderFlow.Api
 dotnet run --project src/OrderFlow.Api
 ```
 

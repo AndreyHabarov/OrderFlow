@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OrderFlow.Application.Carts;
 
@@ -6,6 +7,7 @@ namespace OrderFlow.Api.Controllers;
 
 public sealed record AddCartItemRequest(Guid ProductId, int Quantity);
 
+[Authorize]
 [ApiController]
 [Route("api/cart")]
 public sealed class CartController(ISender sender) : ControllerBase

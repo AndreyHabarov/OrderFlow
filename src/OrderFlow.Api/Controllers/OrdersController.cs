@@ -1,9 +1,11 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OrderFlow.Application.Orders;
 
 namespace OrderFlow.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/orders")]
 public sealed class OrdersController(ISender sender) : ControllerBase

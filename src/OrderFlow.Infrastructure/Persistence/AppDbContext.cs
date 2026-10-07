@@ -4,6 +4,7 @@ using OrderFlow.Application.Common;
 using OrderFlow.Domain.Carts;
 using OrderFlow.Domain.Catalog;
 using OrderFlow.Domain.Orders;
+using OrderFlow.Domain.Users;
 
 namespace OrderFlow.Infrastructure.Persistence;
 
@@ -17,6 +18,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Cart> Carts => Set<Cart>();
 
     public DbSet<Order> Orders => Set<Order>();
+
+    public DbSet<User> Users => Set<User>();
+
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public bool IsUniqueViolation(Exception exception) =>
         exception is DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } };

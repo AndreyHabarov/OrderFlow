@@ -26,6 +26,7 @@ internal sealed partial class GlobalExceptionHandler(ILogger<GlobalExceptionHand
                         .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray())
                 }
             },
+            ConflictException conflict => Create(StatusCodes.Status409Conflict, "Conflict", conflict.Message),
             NotFoundException notFound => Create(StatusCodes.Status404NotFound, "Not found", notFound.Message),
             UnauthorizedException unauthorized => Create(StatusCodes.Status401Unauthorized, "Unauthorized", unauthorized.Message),
             DomainException domain => Create(StatusCodes.Status422UnprocessableEntity, "Business rule violated", domain.Message),

@@ -186,4 +186,60 @@ public class CartAndCheckoutTests
         Assert.Equal(winner.Id, result.Order.Id);
         Assert.Equal(0, app.Cache.Invalidations);
     }
+
+    [Fact]
+    public async Task Duplicate_that_finds_the_cart_already_emptied_by_the_winner_gets_the_winning_order()
+    {
+        // Race window found by CI: the fast-path lookup ran before the winner committed, the cart read ran after.
+        var product = TestApp.Product("Keyboard", stock: 5);
+        var app = new TestApp(null, product);
+        await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
+        var first = await Checkout(app, "race-key"); // the winner: order exists, cart is empty
+        app.Orders.HideNextLookups = 1; // the duplicate's first lookup still saw nothing
+
+        var duplicate = await Checkout(app, "race-key");
+
+        Assert.True(duplicate.Replayed);
+        Assert.Equal(first.Order.Id, duplicate.Order.Id);
+        Assert.Single(app.Orders.Store);
+    }
+
+    [Fact]
+    public async Task Duplicate_that_loses_on_the_product_version_gets_the_winning_order()
+    {
+        // The other race window: the winner updated the product rows first, so our UPDATE fails the version check
+        // before the unique index on the key is even reached.
+        var product = TestApp.Product("Keyboard", stock: 5);
+        var app = new TestApp(null, product);
+        await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
+        var winner = Order.Create(app.CustomerId, [new OrderItem(product.Id, "Keyboard", 1, new Money(10m))], DateTimeOffset.UtcNow, "race-key");
+        app.UnitOfWork.OnNextSave = () =>
+        {
+            app.Orders.Store.RemoveAll(o => o.IdempotencyKey == "race-key"); // our own insert is rolled back
+            app.Orders.Store.Add(winner);
+            throw new ConcurrencySimulated();
+        };
+
+        var result = await Checkout(app, "race-key");
+
+        Assert.True(result.Replayed);
+        Assert.Equal(winner.Id, result.Order.Id);
+    }
+
+    [Fact]
+    public async Task Version_conflict_with_another_customers_order_is_not_hidden()
+    {
+        // Same product row, but the winner is somebody else's order (different key): the caller must learn about it.
+        var product = TestApp.Product("Keyboard", stock: 5);
+        var app = new TestApp(null, product);
+        await app.Sender.Send(new AddCartItemCommand(product.Id, 1));
+        app.UnitOfWork.OnNextSave = () =>
+        {
+            app.Orders.Store.RemoveAll(o => o.IdempotencyKey == "my-own-key"); // our own insert is rolled back
+            throw new ConcurrencySimulated();
+        };
+
+        await Assert.ThrowsAsync<ConcurrencySimulated>(() => Checkout(app, "my-own-key"));
+        Assert.Equal(0, app.Cache.Invalidations);
+    }
 }

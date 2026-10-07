@@ -43,16 +43,18 @@ internal sealed class CheckoutCommandHandler(
         var customerId = currentUser.CustomerId;
 
         // Fast path: a retry of a request that already succeeded.
-        var existing = await orders.GetByIdempotencyKeyAsync(customerId, request.IdempotencyKey, cancellationToken);
-        if (existing is not null)
+        if (await FindReplayAsync(customerId, request.IdempotencyKey, cancellationToken) is { } replay)
         {
-            return new CheckoutResult(OrderDto.From(existing), Replayed: true);
+            return replay;
         }
 
         var cart = await carts.GetByCustomerAsync(customerId, cancellationToken);
         if (cart is null || cart.Items.Count == 0)
         {
-            throw new DomainException("The cart is empty.");
+            // An empty cart can also mean a concurrent request with the same key just committed and emptied it
+            // after our fast-path lookup. Look again before reporting an error.
+            return await FindReplayAsync(customerId, request.IdempotencyKey, cancellationToken)
+                   ?? throw new DomainException("The cart is empty.");
         }
 
         var ids = cart.Items.Select(i => i.ProductId).ToList();
@@ -81,19 +83,32 @@ internal sealed class CheckoutCommandHandler(
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (Exception ex) when (unitOfWork.IsUniqueViolation(ex))
+        catch (Exception ex) when (unitOfWork.IsUniqueViolation(ex) || unitOfWork.IsConcurrencyConflict(ex))
         {
-            // A concurrent request with the same key committed first. Our transaction (including the stock
-            // reservation) was rolled back, so we simply return the order that won.
-            var winner = await orders.GetByIdempotencyKeyAsync(customerId, request.IdempotencyKey, cancellationToken)
-                         ?? throw new InvalidOperationException("Unique violation without an existing order.", ex);
-            return new CheckoutResult(OrderDto.From(winner), Replayed: true);
+            // We lost a race. If the winner is a request with the same idempotency key (a duplicate), our whole
+            // transaction (including the stock reservation) was rolled back and we return the winner's order.
+            // The race shows up as a unique violation on the key, or as a version conflict on the product rows the
+            // winner already updated, depending on which statement collides first.
+            var winner = await FindReplayAsync(customerId, request.IdempotencyKey, cancellationToken);
+            if (winner is not null)
+            {
+                return winner;
+            }
+
+            // No such order: a different customer took the stock first. Let the API answer 409 so the client can retry.
+            throw;
         }
 
         // Stock changed, so cached catalog pages are stale.
         await cache.InvalidateNamespaceAsync(CatalogCache.Namespace, cancellationToken);
 
         return new CheckoutResult(OrderDto.From(order), Replayed: false);
+    }
+
+    private async Task<CheckoutResult?> FindReplayAsync(Guid customerId, string idempotencyKey, CancellationToken cancellationToken)
+    {
+        var existing = await orders.GetByIdempotencyKeyAsync(customerId, idempotencyKey, cancellationToken);
+        return existing is null ? null : new CheckoutResult(OrderDto.From(existing), Replayed: true);
     }
 }
 

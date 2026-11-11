@@ -25,7 +25,7 @@ COPY src/ src/
 RUN dotnet publish src/${PROJECT}/${PROJECT}.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false
 
 # ---- runtime: only the ASP.NET runtime, no SDK, non-root user ----
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-alpine AS final
 ARG PROJECT
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080

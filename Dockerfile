@@ -4,7 +4,7 @@
 ARG PROJECT=OrderFlow.Api
 
 # ---- restore: copy only project files first so the layer is cached until dependencies change ----
-FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS restore
+FROM mcr.microsoft.com/dotnet/sdk:11.0-alpine AS restore
 ARG PROJECT
 WORKDIR /src
 COPY Directory.Build.props Directory.Packages.props .editorconfig ./
